@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight, Undo2, Redo2, Copy, Clipboard, Trash2, CopyPlus, ChevronUp, ChevronDown } from 'lucide-react';
 import WorkspaceProvider, { useWorkspace } from './WorkspaceProvider';
 import ResizablePanel from './ResizablePanel';
 import ComponentLibrary from './ComponentLibrary';
@@ -9,6 +9,7 @@ import CSSEditor from './CSSEditor';
 import HTMLEditor from './HTMLEditor';
 import PageTabs from './PageTabs';
 import AIModal from './AIModal';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
 import Tooltip from './Tooltip';
 import OnboardingTips from './OnboardingTips';
 import { Component, Page, OnboardingTip, LayoutPreset } from '../types';
@@ -16,6 +17,8 @@ import { generateCSSFromComponents, generateBodyHTML } from '../utils/codeGenera
 import { parseHTMLToComponents } from '../utils/htmlParser';
 import { applyCSSToComponents } from '../utils/cssManager';
 import { AIService, AIConfig } from '../services/aiService';
+import useHistory from '../hooks/useHistory';
+import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
 
 interface BuilderProps {
   initialComponents?: Component[];
@@ -30,6 +33,18 @@ const createPage = (name: string, components: Component[] = []): Page => ({
   canvasBg: '#ffffff',
 });
 
+// Deep-clone a component with a new unique ID
+const cloneComponent = (comp: Component, offsetX = 20, offsetY = 20): Component => ({
+  ...comp,
+  id: `${comp.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  className: comp.className ? `${comp.className}-copy` : undefined,
+  customId: comp.customId ? `${comp.customId}-copy` : undefined,
+  position: comp.position
+    ? { x: comp.position.x + offsetX, y: comp.position.y + offsetY }
+    : undefined,
+  children: comp.children?.map(c => cloneComponent(c, 0, 0)),
+});
+
 function BuilderInner({ initialComponents = [] }: BuilderProps) {
   const { state, setPreset, toggleFocusMode, togglePanel, isPanelVisible } = useWorkspace();
 
@@ -38,8 +53,17 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
   const [activePageId, setActivePageId] = useState(pages[0].id);
   const activePage = pages.find(p => p.id === activePageId) || pages[0];
 
-  // Component state for active page
-  const [components, setComponents] = useState<Component[]>(activePage.components);
+  // === Component state WITH UNDO/REDO ===
+  const {
+    state: components,
+    setState: setComponents,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    reset: resetHistory,
+  } = useHistory<Component[]>(activePage.components);
+
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [customCSS, setCustomCSS] = useState(activePage.cssCode);
   const [htmlCode, setHtmlCode] = useState('');
@@ -50,6 +74,16 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clipboard for copy/paste
+  const clipboardRef = useRef<Component | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    componentId: string | null;
+  } | null>(null);
 
   // Sync flags to prevent circular updates
   const syncSourceRef = useRef<'canvas' | 'html' | 'css' | null>(null);
@@ -89,13 +123,13 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
     const page = pages.find(p => p.id === pageId);
     if (page) {
       setActivePageId(pageId);
-      setComponents(page.components);
+      resetHistory(page.components);
       setCustomCSS(page.cssCode);
       setCanvasBg(page.canvasBg);
       setSelectedComponentId(null);
       syncSourceRef.current = null;
     }
-  }, [pages]);
+  }, [pages, resetHistory]);
 
   const handleAddPage = useCallback(() => {
     const newPage = createPage(`page-${pages.length + 1}`);
@@ -110,14 +144,14 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
       if (pageId === activePageId) {
         const switchTo = next[0];
         setActivePageId(switchTo.id);
-        setComponents(switchTo.components);
+        resetHistory(switchTo.components);
         setCustomCSS(switchTo.cssCode);
         setCanvasBg(switchTo.canvasBg);
         setSelectedComponentId(null);
       }
       return next;
     });
-  }, [pages.length, activePageId]);
+  }, [pages.length, activePageId, resetHistory]);
 
   const handleRenamePage = useCallback((pageId: string, name: string) => {
     setPages(prev => prev.map(p => p.id === pageId ? { ...p, name } : p));
@@ -136,13 +170,166 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
     );
   };
 
-  const handleDeleteComponent = () => {
+  const handleDeleteComponent = useCallback(() => {
     if (selectedComponentId) {
       syncSourceRef.current = 'canvas';
       setComponents(prev => prev.filter((c) => c.id !== selectedComponentId));
       setSelectedComponentId(null);
     }
-  };
+  }, [selectedComponentId, setComponents]);
+
+  // === Copy / Paste / Duplicate ===
+  const handleCopy = useCallback(() => {
+    if (selectedComponent) {
+      clipboardRef.current = selectedComponent;
+    }
+  }, [selectedComponent]);
+
+  const handlePaste = useCallback(() => {
+    if (clipboardRef.current) {
+      const pasted = cloneComponent(clipboardRef.current);
+      syncSourceRef.current = 'canvas';
+      setComponents(prev => [...prev, pasted]);
+      setSelectedComponentId(pasted.id);
+    }
+  }, [setComponents]);
+
+  const handleDuplicate = useCallback(() => {
+    if (selectedComponent) {
+      const duplicated = cloneComponent(selectedComponent);
+      syncSourceRef.current = 'canvas';
+      setComponents(prev => [...prev, duplicated]);
+      setSelectedComponentId(duplicated.id);
+    }
+  }, [selectedComponent, setComponents]);
+
+  // === Nudge (arrow keys) ===
+  const handleNudge = useCallback((dx: number, dy: number) => {
+    if (!selectedComponentId) return;
+    syncSourceRef.current = 'canvas';
+    setComponents(prev =>
+      prev.map(c =>
+        c.id === selectedComponentId && c.position
+          ? { ...c, position: { x: c.position.x + dx, y: c.position.y + dy } }
+          : c
+      )
+    );
+  }, [selectedComponentId, setComponents]);
+
+  // === Layer ordering ===
+  const handleBringForward = useCallback(() => {
+    if (!selectedComponentId) return;
+    setComponents(prev => {
+      const idx = prev.findIndex(c => c.id === selectedComponentId);
+      if (idx === -1 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return next;
+    });
+  }, [selectedComponentId, setComponents]);
+
+  const handleSendBackward = useCallback(() => {
+    if (!selectedComponentId) return;
+    setComponents(prev => {
+      const idx = prev.findIndex(c => c.id === selectedComponentId);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+      return next;
+    });
+  }, [selectedComponentId, setComponents]);
+
+  // === Select all ===
+  const handleSelectAll = useCallback(() => {
+    // Select the first component if any (multi-select not supported yet)
+    if (components.length > 0) {
+      setSelectedComponentId(components[0].id);
+    }
+  }, [components]);
+
+  // === Deselect ===
+  const handleDeselect = useCallback(() => {
+    setSelectedComponentId(null);
+    setContextMenu(null);
+  }, []);
+
+  // === Keyboard shortcuts ===
+  const shortcuts = useMemo(() => [
+    { key: 'z', ctrl: true, action: undo, description: 'Undo' },
+    { key: 'y', ctrl: true, action: redo, description: 'Redo' },
+    { key: 'z', ctrl: true, shift: true, action: redo, description: 'Redo' },
+    { key: 'Delete', action: handleDeleteComponent, description: 'Delete' },
+    { key: 'Backspace', action: handleDeleteComponent, description: 'Delete' },
+    { key: 'c', ctrl: true, action: handleCopy, description: 'Copy' },
+    { key: 'v', ctrl: true, action: handlePaste, description: 'Paste' },
+    { key: 'd', ctrl: true, action: handleDuplicate, description: 'Duplicate' },
+    { key: 'a', ctrl: true, action: handleSelectAll, description: 'Select All' },
+    { key: 'Escape', action: handleDeselect, description: 'Deselect' },
+    { key: 'ArrowUp', action: () => handleNudge(0, -5), description: 'Nudge up' },
+    { key: 'ArrowDown', action: () => handleNudge(0, 5), description: 'Nudge down' },
+    { key: 'ArrowLeft', action: () => handleNudge(-5, 0), description: 'Nudge left' },
+    { key: 'ArrowRight', action: () => handleNudge(5, 0), description: 'Nudge right' },
+    { key: 'ArrowUp', shift: true, action: () => handleNudge(0, -1), description: 'Nudge up 1px' },
+    { key: 'ArrowDown', shift: true, action: () => handleNudge(0, 1), description: 'Nudge down 1px' },
+    { key: 'ArrowLeft', shift: true, action: () => handleNudge(-1, 0), description: 'Nudge left 1px' },
+    { key: 'ArrowRight', shift: true, action: () => handleNudge(1, 0), description: 'Nudge right 1px' },
+  ], [undo, redo, handleDeleteComponent, handleCopy, handlePaste, handleDuplicate, handleSelectAll, handleDeselect, handleNudge]);
+
+  useKeyboardShortcuts(shortcuts);
+
+  // === Context menu ===
+  const handleContextMenu = useCallback((e: React.MouseEvent, componentId: string | null) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, componentId });
+    if (componentId) {
+      setSelectedComponentId(componentId);
+    }
+  }, []);
+
+  const contextMenuItems: ContextMenuItem[] = useMemo(() => [
+    {
+      label: 'Copy',
+      icon: <Copy size={14} />,
+      shortcut: 'Ctrl+C',
+      onClick: handleCopy,
+      disabled: !selectedComponent,
+    },
+    {
+      label: 'Paste',
+      icon: <Clipboard size={14} />,
+      shortcut: 'Ctrl+V',
+      onClick: handlePaste,
+      disabled: !clipboardRef.current,
+    },
+    {
+      label: 'Duplicate',
+      icon: <CopyPlus size={14} />,
+      shortcut: 'Ctrl+D',
+      onClick: handleDuplicate,
+      disabled: !selectedComponent,
+    },
+    { label: '', onClick: () => { }, divider: true },
+    {
+      label: 'Bring Forward',
+      icon: <ChevronUp size={14} />,
+      onClick: handleBringForward,
+      disabled: !selectedComponent,
+    },
+    {
+      label: 'Send Backward',
+      icon: <ChevronDown size={14} />,
+      onClick: handleSendBackward,
+      disabled: !selectedComponent,
+    },
+    { label: '', onClick: () => { }, divider: true },
+    {
+      label: 'Delete',
+      icon: <Trash2 size={14} />,
+      shortcut: 'Del',
+      onClick: handleDeleteComponent,
+      disabled: !selectedComponent,
+    },
+  ], [selectedComponent, handleCopy, handlePaste, handleDuplicate, handleBringForward, handleSendBackward, handleDeleteComponent]);
 
   // === HTML Editor → Canvas sync ===
   const handleHTMLChange = useCallback((newHtml: string) => {
@@ -152,14 +339,13 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
       const wrapperHtml = `<div class="canvas-container">${newHtml}</div>`;
       const parsed = parseHTMLToComponents(wrapperHtml);
       if (parsed.length > 0) {
-        // Apply existing CSS to the parsed components
         const withStyles = applyCSSToComponents(customCSS, parsed);
         setComponents(withStyles);
       }
     } catch {
       // Parsing may fail while user is typing; ignore silently
     }
-  }, [customCSS]);
+  }, [customCSS, setComponents]);
 
   // === CSS Editor → Canvas sync ===
   const handleCSSChange = useCallback((newCSS: string) => {
@@ -171,7 +357,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
     } catch {
       // Parse error while typing; ignore
     }
-  }, [components]);
+  }, [components, setComponents]);
 
   const handleCreateClass = () => {
     const className = prompt('Enter new class name (without dot):');
@@ -277,22 +463,20 @@ ${generateBodyHTML(savePage.components)}
           const project = JSON.parse(content);
 
           if (project.pages) {
-            // New multi-page format
             setPages(project.pages);
             const firstPage = project.pages[0];
             setActivePageId(project.activePageId || firstPage.id);
             const active = project.pages.find((p: Page) => p.id === project.activePageId) || firstPage;
-            setComponents(active.components);
+            resetHistory(active.components);
             setCustomCSS(active.cssCode);
             setCanvasBg(active.canvasBg);
           } else if (project.components) {
-            // Legacy single-page format → migrate
             const migrated = createPage('index', project.components);
             migrated.cssCode = project.customCSS || generateCSSFromComponents(project.components);
             migrated.canvasBg = project.canvasBg || '#ffffff';
             setPages([migrated]);
             setActivePageId(migrated.id);
-            setComponents(migrated.components);
+            resetHistory(migrated.components);
             setCustomCSS(migrated.cssCode);
             setCanvasBg(migrated.canvasBg);
           } else {
@@ -349,6 +533,28 @@ ${generateBodyHTML(savePage.components)}
               onClick={toggleFocusMode}
             >
               <Maximize size={16} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Undo / Redo */}
+        <div className="builder-history">
+          <Tooltip content="Undo (Ctrl+Z)">
+            <button
+              className={`history-btn ${!canUndo ? 'disabled' : ''}`}
+              onClick={undo}
+              disabled={!canUndo}
+            >
+              <Undo2 size={18} />
+            </button>
+          </Tooltip>
+          <Tooltip content="Redo (Ctrl+Y)">
+            <button
+              className={`history-btn ${!canRedo ? 'disabled' : ''}`}
+              onClick={redo}
+              disabled={!canRedo}
+            >
+              <Redo2 size={18} />
             </button>
           </Tooltip>
         </div>
@@ -448,6 +654,7 @@ ${generateBodyHTML(savePage.components)}
             onSelectComponent={setSelectedComponentId}
             canvasBg={canvasBg}
             onCanvasBgChange={setCanvasBg}
+            onContextMenu={handleContextMenu}
           />
         </main>
 
@@ -504,6 +711,17 @@ ${generateBodyHTML(savePage.components)}
           )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isOpen={true}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {/* AI Modal */}
       <AIModal

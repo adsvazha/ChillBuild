@@ -744,6 +744,126 @@ body {
   flex: 1;
 }
 
+.builder.focus-mode .builder-history {
+  display: none;
+}
+
+/* === Undo / Redo Buttons === */
+.builder-history {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.history-btn:disabled,
+.history-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* === Context Menu === */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  animation: contextMenuIn 0.12s ease-out;
+}
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: left;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.context-menu-item:disabled,
+.context-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-menu-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-menu-icon {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+}
+
+.context-menu-item:hover:not(:disabled) .context-menu-icon {
+  color: #2563eb;
+}
+
+.context-menu-shortcut {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  font-family: -apple-system, system-ui, sans-serif;
+  margin-left: 24px;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 8px;
+}
+
 /* Sidebar Tabs */
 .sidebar-tabs {
   display: flex;
@@ -1038,6 +1158,7 @@ body {
     opacity: 0;
     transform: scale(0.8) translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1080,9 +1201,12 @@ body {
 }
 
 @keyframes selectionPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
   }
+
   50% {
     box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.1);
   }
@@ -1179,6 +1303,7 @@ body {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1256,6 +1381,7 @@ body {
     opacity: 0;
     transform: translateX(-50%) translateY(-5px);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
@@ -1649,6 +1775,7 @@ body {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

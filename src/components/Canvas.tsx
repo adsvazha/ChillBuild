@@ -10,6 +10,7 @@ interface CanvasProps {
   onSelectComponent: (id: string | null) => void;
   canvasBg?: string;
   onCanvasBgChange?: (bg: string) => void;
+  onContextMenu?: (e: React.MouseEvent, componentId: string | null) => void;
 }
 
 export default function Canvas({
@@ -19,6 +20,7 @@ export default function Canvas({
   onSelectComponent,
   canvasBg: canvasBgProp,
   onCanvasBgChange,
+  onContextMenu,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -294,6 +296,11 @@ export default function Canvas({
         className={className}
         style={wrapperStyle}
         onMouseDown={(e) => handleComponentMouseDown(e, component)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu?.(e, component.id);
+        }}
       >
         {content}
         <div className="component-label">
@@ -446,6 +453,10 @@ export default function Canvas({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onClick={() => onSelectComponent(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onContextMenu?.(e, null);
+            }}
             style={{
               backgroundColor: canvasBg,
               minWidth: '1200px',
