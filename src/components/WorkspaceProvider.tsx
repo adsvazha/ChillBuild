@@ -3,6 +3,7 @@ import { PanelConfig, PanelId, LayoutPreset, WorkspaceState } from '../types';
 
 const defaultPanels: PanelConfig[] = [
     { id: 'components', title: 'Components', visible: true, width: 220, minWidth: 180, collapsed: false },
+    { id: 'layers', title: 'Layers', visible: false, width: 220, minWidth: 180, collapsed: false },
     { id: 'canvas', title: 'Canvas', visible: true, width: 0, minWidth: 400, collapsed: false }, // flex: 1
     { id: 'properties', title: 'Properties', visible: true, width: 280, minWidth: 220, collapsed: false },
     { id: 'html-editor', title: 'HTML', visible: false, width: 400, minWidth: 250, collapsed: false },
@@ -12,6 +13,7 @@ const defaultPanels: PanelConfig[] = [
 const presetConfigs: Record<LayoutPreset, Partial<Record<PanelId, { visible: boolean; collapsed: boolean }>>> = {
     design: {
         'components': { visible: true, collapsed: false },
+        'layers': { visible: false, collapsed: false },
         'canvas': { visible: true, collapsed: false },
         'properties': { visible: true, collapsed: false },
         'html-editor': { visible: false, collapsed: false },
@@ -19,6 +21,7 @@ const presetConfigs: Record<LayoutPreset, Partial<Record<PanelId, { visible: boo
     },
     code: {
         'components': { visible: false, collapsed: false },
+        'layers': { visible: false, collapsed: false },
         'canvas': { visible: true, collapsed: false },
         'properties': { visible: false, collapsed: false },
         'html-editor': { visible: true, collapsed: false },
@@ -26,6 +29,7 @@ const presetConfigs: Record<LayoutPreset, Partial<Record<PanelId, { visible: boo
     },
     preview: {
         'components': { visible: false, collapsed: true },
+        'layers': { visible: false, collapsed: true },
         'canvas': { visible: true, collapsed: false },
         'properties': { visible: false, collapsed: true },
         'html-editor': { visible: false, collapsed: true },

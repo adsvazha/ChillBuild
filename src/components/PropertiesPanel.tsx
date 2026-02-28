@@ -649,39 +649,159 @@ export default function PropertiesPanel({
 
         {renderComponentSpecificProperties()}
 
-        <div className="property-section">
-          <h4>Advanced</h4>
+        <div className="property-section" style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+          <h4>Layout</h4>
         </div>
 
         <div className="property-group">
-          <label>Width</label>
-          <input
-            type="text"
-            value={component.styles.width || ''}
-            onChange={(e) => handleStyleChange('width', e.target.value)}
-            placeholder="auto, 100px, 50%"
-          />
+          <label>Display</label>
+          <select
+            value={component.styles.display || 'block'}
+            onChange={(e) => handleStyleChange('display', e.target.value)}
+          >
+            <option value="block">Block</option>
+            <option value="flex">Flex</option>
+            <option value="grid">Grid</option>
+            <option value="inline-block">Inline Block</option>
+            <option value="inline-flex">Inline Flex</option>
+            <option value="none">None</option>
+          </select>
         </div>
 
-        <div className="property-group">
-          <label>Height</label>
-          <input
-            type="text"
-            value={component.styles.height || ''}
-            onChange={(e) => handleStyleChange('height', e.target.value)}
-            placeholder="auto, 100px, 50%"
-          />
+        {(component.styles.display === 'flex' || component.styles.display === 'inline-flex') && (
+          <div className="layout-controls-group">
+            <div className="property-group">
+              <label>Flex Direction</label>
+              <select
+                value={component.styles.flexDirection || 'row'}
+                onChange={(e) => handleStyleChange('flexDirection', e.target.value)}
+              >
+                <option value="row">Row →</option>
+                <option value="column">Column ↓</option>
+                <option value="row-reverse">Row Reverse ←</option>
+                <option value="column-reverse">Column Reverse ↑</option>
+              </select>
+            </div>
+            <div className="property-group">
+              <label>Justify Content</label>
+              <select
+                value={component.styles.justifyContent || 'flex-start'}
+                onChange={(e) => handleStyleChange('justifyContent', e.target.value)}
+              >
+                <option value="flex-start">Start</option>
+                <option value="center">Center</option>
+                <option value="flex-end">End</option>
+                <option value="space-between">Space Between</option>
+                <option value="space-around">Space Around</option>
+                <option value="space-evenly">Space Evenly</option>
+              </select>
+            </div>
+            <div className="property-group">
+              <label>Align Items</label>
+              <select
+                value={component.styles.alignItems || 'stretch'}
+                onChange={(e) => handleStyleChange('alignItems', e.target.value)}
+              >
+                <option value="stretch">Stretch</option>
+                <option value="flex-start">Start</option>
+                <option value="center">Center</option>
+                <option value="flex-end">End</option>
+                <option value="baseline">Baseline</option>
+              </select>
+            </div>
+            <div className="property-group">
+              <label>Flex Wrap</label>
+              <select
+                value={component.styles.flexWrap || 'nowrap'}
+                onChange={(e) => handleStyleChange('flexWrap', e.target.value)}
+              >
+                <option value="nowrap">No Wrap</option>
+                <option value="wrap">Wrap</option>
+                <option value="wrap-reverse">Wrap Reverse</option>
+              </select>
+            </div>
+            <div className="property-group">
+              <label>Gap</label>
+              <input
+                type="text"
+                value={component.styles.gap || ''}
+                onChange={(e) => handleStyleChange('gap', e.target.value)}
+                placeholder="0px, 1rem"
+              />
+            </div>
+          </div>
+        )}
+
+        {component.styles.display === 'grid' && (
+          <div className="layout-controls-group">
+            <div className="property-group">
+              <label>Grid Template Columns</label>
+              <input
+                type="text"
+                value={component.styles.gridTemplateColumns || ''}
+                onChange={(e) => handleStyleChange('gridTemplateColumns', e.target.value)}
+                placeholder="1fr 1fr, repeat(3, 1fr)"
+              />
+            </div>
+            <div className="property-group">
+              <label>Gap</label>
+              <input
+                type="text"
+                value={component.styles.gap || ''}
+                onChange={(e) => handleStyleChange('gap', e.target.value)}
+                placeholder="0px, 1rem"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="property-section" style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+          <h4>Spacing & Size</h4>
         </div>
 
-        <div className="property-group">
-          <Slider
-            label="Margin"
-            value={component.styles.margin || '0px'}
-            onChange={(value) => handleStyleChange('margin', value)}
-            min={0}
-            max={100}
-            unit="px"
-          />
+        <div className="size-inputs-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          <div className="property-group" style={{ marginBottom: 0 }}>
+            <label>Width</label>
+            <input
+              type="text"
+              value={component.styles.width || ''}
+              onChange={(e) => handleStyleChange('width', e.target.value)}
+              placeholder="auto, 100%, 200px"
+              style={{ fontSize: '13px', padding: '6px' }}
+            />
+          </div>
+          <div className="property-group" style={{ marginBottom: 0 }}>
+            <label>Height</label>
+            <input
+              type="text"
+              value={component.styles.height || ''}
+              onChange={(e) => handleStyleChange('height', e.target.value)}
+              placeholder="auto, 100vh, 200px"
+              style={{ fontSize: '13px', padding: '6px' }}
+            />
+          </div>
+        </div>
+
+        <div className="box-model-container" style={{ background: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <div className="property-group" style={{ marginBottom: '8px' }}>
+            <label style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Margin</label>
+            <input
+              type="text"
+              value={component.styles.margin || ''}
+              onChange={(e) => handleStyleChange('margin', e.target.value)}
+              placeholder="0px auto (T R B L)"
+            />
+          </div>
+
+          <div className="property-group" style={{ marginBottom: 0 }}>
+            <label style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Padding</label>
+            <input
+              type="text"
+              value={component.styles.padding || ''}
+              onChange={(e) => handleStyleChange('padding', e.target.value)}
+              placeholder="16px 24px (T R B L)"
+            />
+          </div>
         </div>
       </div>
     </div>

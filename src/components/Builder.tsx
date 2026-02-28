@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight, Undo2, Redo2, Copy, Clipboard, Trash2, CopyPlus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight, Undo2, Redo2, Copy, Clipboard, Trash2, CopyPlus, ChevronUp, ChevronDown, Layers } from 'lucide-react';
 import WorkspaceProvider, { useWorkspace } from './WorkspaceProvider';
 import ResizablePanel from './ResizablePanel';
 import ComponentLibrary from './ComponentLibrary';
@@ -12,6 +12,7 @@ import AIModal from './AIModal';
 import ContextMenu, { ContextMenuItem } from './ContextMenu';
 import Tooltip from './Tooltip';
 import OnboardingTips from './OnboardingTips';
+import LayersPanel from './LayersPanel';
 import { Component, Page, OnboardingTip, LayoutPreset } from '../types';
 import { generateCSSFromComponents, generateBodyHTML } from '../utils/codeGenerator';
 import { parseHTMLToComponents } from '../utils/htmlParser';
@@ -575,6 +576,14 @@ ${generateBodyHTML(savePage.components)}
               <PanelLeft size={18} />
             </button>
           </Tooltip>
+          <Tooltip content="Toggle Layers Panel">
+            <button
+              className={`action-btn ${isPanelVisible('layers') ? 'active' : ''}`}
+              onClick={() => togglePanel('layers')}
+            >
+              <Layers size={18} />
+            </button>
+          </Tooltip>
           <Tooltip content="Toggle Properties Panel">
             <button
               className={`action-btn ${isPanelVisible('properties') ? 'active' : ''}`}
@@ -639,6 +648,30 @@ ${generateBodyHTML(savePage.components)}
             className="panel-components"
           >
             <ComponentLibrary onAddComponent={handleAddComponent} />
+          </ResizablePanel>
+        )}
+
+        {/* Left: Layers Panel */}
+        {isPanelVisible('layers') && (
+          <ResizablePanel
+            defaultWidth={220}
+            minWidth={180}
+            maxWidth={350}
+            direction="right"
+            className="panel-components"
+          >
+            <div className="panel-header">
+              <h3>Layers</h3>
+            </div>
+            <LayersPanel
+              components={components}
+              selectedId={selectedComponentId}
+              onSelect={setSelectedComponentId}
+              onUpdate={(newComponents) => {
+                syncSourceRef.current = 'canvas';
+                setComponents(newComponents);
+              }}
+            />
           </ResizablePanel>
         )}
 

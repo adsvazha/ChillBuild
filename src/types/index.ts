@@ -69,7 +69,7 @@ export interface Page {
 
 // === NEW: Workspace panel system ===
 
-export type PanelId = 'components' | 'canvas' | 'properties' | 'html-editor' | 'css-editor';
+export type PanelId = 'components' | 'canvas' | 'properties' | 'html-editor' | 'css-editor' | 'layers';
 
 export interface PanelConfig {
   id: PanelId;
