@@ -2,6 +2,8 @@ export interface Component {
   id: string;
   type: 'button' | 'text' | 'image' | 'container' | 'heading' | 'input' | 'card' | 'navbar' | 'footer' | 'form' | 'video' | 'grid' | 'list' | 'badge' | 'divider' | 'link' | 'textarea';
   content: string;
+  className?: string;
+  customId?: string;
   position?: {
     x: number;
     y: number;
@@ -40,4 +42,48 @@ export interface Component {
     [key: string]: string | undefined;
   };
   children?: Component[];
+}
+
+export interface CSSRule {
+  selector: string;
+  properties: Record<string, string>;
+}
+
+export interface OnboardingTip {
+  id: string;
+  title: string;
+  message: string;
+  trigger: 'first-component' | 'first-css-edit' | 'first-class-create' | 'first-export';
+  shown: boolean;
+}
+
+// === NEW: Multi-page support ===
+
+export interface Page {
+  id: string;
+  name: string;
+  components: Component[];
+  cssCode: string;
+  canvasBg: string;
+}
+
+// === NEW: Workspace panel system ===
+
+export type PanelId = 'components' | 'canvas' | 'properties' | 'html-editor' | 'css-editor';
+
+export interface PanelConfig {
+  id: PanelId;
+  title: string;
+  visible: boolean;
+  width: number;       // percentage or pixels
+  minWidth: number;
+  collapsed: boolean;
+}
+
+export type LayoutPreset = 'design' | 'code' | 'preview';
+
+export interface WorkspaceState {
+  panels: PanelConfig[];
+  activePreset: LayoutPreset;
+  focusMode: boolean;
 }

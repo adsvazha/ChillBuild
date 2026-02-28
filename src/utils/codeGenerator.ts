@@ -1,105 +1,155 @@
 import { Component } from '../types';
 
-export const generateHTMLFromComponents = (components: Component[], canvasBg: string = '#ffffff'): string => {
-  const renderComponent = (component: Component): string => {
-    const position = component.position || { x: 0, y: 0 };
-    const size = component.size || { width: 200, height: 100 };
+export const generateCSSFromComponents = (components: Component[]): string => {
+  const cssRules: Map<string, Record<string, string>> = new Map();
 
-    const wrapperStyle = `position: absolute; left: ${position.x}px; top: ${position.y}px; width: ${size.width}px; height: ${size.height}px;`;
+  const processComponent = (component: Component) => {
+    if (component.className) {
+      const position = component.position || { x: 0, y: 0 };
+      const size = component.size || { width: 200, height: 100 };
 
-    const componentStyleEntries = Object.entries(component.styles)
-      .map(([key, value]) => {
-        const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-        return `${cssKey}: ${value}`;
-      })
-      .join('; ');
+      const positionStyles = {
+        position: 'absolute',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        width: `${size.width}px`,
+        height: `${size.height}px`,
+      };
 
-    const componentStyle = `${componentStyleEntries}; width: 100%; height: 100%; box-sizing: border-box;`;
+      const innerStyles: Record<string, string> = {};
+      Object.entries(component.styles).forEach(([key, value]) => {
+        if (value !== undefined) {
+          innerStyles[key] = value;
+        }
+      });
+      innerStyles['width'] = '100%';
+      innerStyles['height'] = '100%';
+      innerStyles['boxSizing'] = 'border-box';
+
+      cssRules.set(`.${component.className}-wrapper`, positionStyles);
+      cssRules.set(`.${component.className}`, innerStyles);
+    }
+
+    if (component.children) {
+      component.children.forEach(processComponent);
+    }
+  };
+
+  components.forEach(processComponent);
+
+  let css = '';
+  cssRules.forEach((properties, selector) => {
+    css += `${selector} {\n`;
+    Object.entries(properties).forEach(([key, value]) => {
+      const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+      css += `  ${cssKey}: ${value};\n`;
+    });
+    css += '}\n\n';
+  });
+
+  return css;
+};
+
+/**
+ * Generate clean HTML body content from components.
+ * No inline styles — uses class and id attributes only.
+ */
+export const generateBodyHTML = (components: Component[]): string => {
+  const renderComponent = (component: Component, indent: number = 2): string => {
+    const pad = ' '.repeat(indent);
+    const className = component.className || '';
+    const customId = component.customId || '';
+    const wrapperClass = className ? `${className}-wrapper` : '';
+    const idAttr = customId ? ` id="${customId}"` : '';
 
     let innerContent = '';
     switch (component.type) {
       case 'button':
-        innerContent = `<button style="${componentStyle}">${component.content}</button>`;
+        innerContent = `${pad}  <button class="${className}"${idAttr}>${component.content}</button>`;
         break;
-
       case 'text':
-        innerContent = `<p style="${componentStyle}">${component.content}</p>`;
+        innerContent = `${pad}  <p class="${className}"${idAttr}>${component.content}</p>`;
         break;
-
       case 'heading':
-        innerContent = `<h1 style="${componentStyle}">${component.content}</h1>`;
+        innerContent = `${pad}  <h1 class="${className}"${idAttr}>${component.content}</h1>`;
         break;
-
       case 'image':
-        innerContent = `<img src="${component.content}" alt="Image" style="${componentStyle}" />`;
+        innerContent = `${pad}  <img src="${component.content}" alt="Image" class="${className}"${idAttr} />`;
         break;
-
       case 'input':
-        innerContent = `<input type="text" placeholder="${component.content || 'Enter text...'}" style="${componentStyle}" />`;
+        innerContent = `${pad}  <input type="text" placeholder="${component.content || 'Enter text...'}" class="${className}"${idAttr} />`;
         break;
-
       case 'textarea':
-        innerContent = `<textarea placeholder="${component.content || 'Enter text...'}" style="${componentStyle}"></textarea>`;
+        innerContent = `${pad}  <textarea placeholder="${component.content || 'Enter text...'}" class="${className}"${idAttr}></textarea>`;
         break;
-
-      case 'container':
-        const childrenHTML = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<div style="${componentStyle}">${childrenHTML}</div>`;
+      case 'container': {
+        const children = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = children
+          ? `${pad}  <div class="${className}"${idAttr}>\n${children}\n${pad}  </div>`
+          : `${pad}  <div class="${className}"${idAttr}></div>`;
         break;
-
+      }
       case 'card':
-        innerContent = `<div style="${componentStyle}">${component.content}</div>`;
+        innerContent = `${pad}  <div class="${className}"${idAttr}>${component.content}</div>`;
         break;
-
-      case 'navbar':
-        const navChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<nav style="${componentStyle}">${navChildren}</nav>`;
+      case 'navbar': {
+        const navChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = navChildren
+          ? `${pad}  <nav class="${className}"${idAttr}>\n${navChildren}\n${pad}  </nav>`
+          : `${pad}  <nav class="${className}"${idAttr}></nav>`;
         break;
-
+      }
       case 'footer':
-        innerContent = `<footer style="${componentStyle}">${component.content}</footer>`;
+        innerContent = `${pad}  <footer class="${className}"${idAttr}>${component.content}</footer>`;
         break;
-
-      case 'form':
-        const formChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<form style="${componentStyle}">${formChildren}</form>`;
+      case 'form': {
+        const formChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = formChildren
+          ? `${pad}  <form class="${className}"${idAttr}>\n${formChildren}\n${pad}  </form>`
+          : `${pad}  <form class="${className}"${idAttr}></form>`;
         break;
-
+      }
       case 'video':
-        innerContent = `<video controls style="${componentStyle}"><source src="${component.content}" type="video/mp4"></video>`;
+        innerContent = `${pad}  <video controls class="${className}"${idAttr}><source src="${component.content}" type="video/mp4"></video>`;
         break;
-
-      case 'grid':
-        const gridChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<div style="${componentStyle}">${gridChildren}</div>`;
+      case 'grid': {
+        const gridChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = gridChildren
+          ? `${pad}  <div class="${className}"${idAttr}>\n${gridChildren}\n${pad}  </div>`
+          : `${pad}  <div class="${className}"${idAttr}></div>`;
         break;
-
-      case 'list':
+      }
+      case 'list': {
         const items = component.content.split('\n').filter(item => item.trim());
-        const listItems = items.map(item => `<li>${item}</li>`).join('\n');
-        innerContent = `<ul style="${componentStyle}">${listItems}</ul>`;
+        const listItems = items.map(item => `${pad}    <li>${item}</li>`).join('\n');
+        innerContent = `${pad}  <ul class="${className}"${idAttr}>\n${listItems}\n${pad}  </ul>`;
         break;
-
+      }
       case 'badge':
-        innerContent = `<span style="${componentStyle}">${component.content}</span>`;
+        innerContent = `${pad}  <span class="${className}"${idAttr}>${component.content}</span>`;
         break;
-
       case 'divider':
-        innerContent = `<hr style="${componentStyle}" />`;
+        innerContent = `${pad}  <hr class="${className}"${idAttr} />`;
         break;
-
       case 'link':
-        innerContent = `<a href="#" style="${componentStyle}">${component.content}</a>`;
+        innerContent = `${pad}  <a href="#" class="${className}"${idAttr}>${component.content}</a>`;
         break;
-
       default:
         innerContent = '';
     }
 
-    return `<div style="${wrapperStyle}">${innerContent}</div>`;
+    return `${pad}<div class="${wrapperClass}">\n${innerContent}\n${pad}</div>`;
   };
 
-  const componentsHTML = components.map(renderComponent).join('\n');
+  return components.map(c => renderComponent(c)).join('\n');
+};
+
+export const generateHTMLFromComponents = (
+  components: Component[],
+  _canvasBg: string = '#ffffff',
+  _customCSS?: string
+): string => {
+  const bodyHTML = generateBodyHTML(components);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -107,30 +157,38 @@ export const generateHTMLFromComponents = (components: Component[], canvasBg: st
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ChillBuild Project</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      margin: 0;
-      padding: 0;
-      overflow: auto;
-    }
-    .canvas-container {
-      position: relative;
-      background-color: ${canvasBg};
-      min-width: 1200px;
-      min-height: 800px;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="canvas-container">
-${componentsHTML}
+${bodyHTML}
 </div>
 </body>
 </html>`;
+};
+
+export const generateSeparateCSS = (components: Component[], canvasBg: string = '#ffffff', customCSS?: string): string => {
+  const generatedCSS = customCSS || generateCSSFromComponents(components);
+
+  return `* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.canvas-container {
+  position: relative;
+  background-color: ${canvasBg};
+  min-width: 1200px;
+  min-height: 800px;
+}
+
+${generatedCSS}`;
 };

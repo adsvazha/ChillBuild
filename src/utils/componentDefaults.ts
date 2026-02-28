@@ -206,11 +206,27 @@ export const componentDefaults: Record<Component['type'], Partial<Component>> = 
   },
 };
 
+let componentCounters: Record<string, number> = {};
+
 export const createComponent = (type: Component['type']): Component => {
+  if (!componentCounters[type]) {
+    componentCounters[type] = 0;
+  }
+  componentCounters[type]++;
+
+  const className = `cb-${type}-${componentCounters[type]}`;
+  const customId = `${type}-${componentCounters[type]}`;
+
   return {
     id: `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    className,
+    customId,
     position: { x: 50, y: 50 },
     size: { width: 200, height: 100 },
     ...componentDefaults[type],
   } as Component;
+};
+
+export const resetComponentCounters = () => {
+  componentCounters = {};
 };
