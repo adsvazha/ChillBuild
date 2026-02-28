@@ -1,12 +1,14 @@
-import { useState, useRef } from 'react';
-import { Sparkles, Code as Code2, Eye, FolderOpen } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Sparkles, FileCode, Eye, FolderOpen, Download } from 'lucide-react';
 import ComponentLibrary from './ComponentLibrary';
 import Canvas from './Canvas';
 import PropertiesPanel from './PropertiesPanel';
-import CodePanel from './CodePanel';
+import CSSEditor from './CSSEditor';
 import AIModal from './AIModal';
-import { Component } from '../types';
-import { generateHTMLFromComponents } from '../utils/codeGenerator';
+import Tooltip from './Tooltip';
+import OnboardingTips from './OnboardingTips';
+import { Component, OnboardingTip } from '../types';
+import { generateHTMLFromComponents, generateCSSFromComponents, generateSeparateCSS } from '../utils/codeGenerator';
 import { AIService, AIConfig } from '../services/aiService';
 
 interface BuilderProps {
@@ -16,24 +18,50 @@ interface BuilderProps {
 export default function Builder({ initialComponents = [] }: BuilderProps) {
   const [components, setComponents] = useState<Component[]>(initialComponents);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-  const [showCode, setShowCode] = useState(false);
-  const [customCode, setCustomCode] = useState<string>('');
+  const [showCSS, setShowCSS] = useState(false);
+  const [customCSS, setCustomCSS] = useState<string>('');
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canvasBg, setCanvasBg] = useState('#ffffff');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [onboardingTips, setOnboardingTips] = useState<Record<OnboardingTip['trigger'], boolean>>({
+    'first-component': false,
+    'first-css-edit': false,
+    'first-class-create': false,
+    'first-export': false,
+  });
+
   const selectedComponent = components.find((c) => c.id === selectedComponentId) || null;
+
+  useEffect(() => {
+    if (components.length > 0 && !onboardingTips['first-component']) {
+      setTimeout(() => {}, 500);
+    }
+  }, [components.length]);
+
+  useEffect(() => {
+    const generatedCSS = generateCSSFromComponents(components);
+    if (!customCSS) {
+      setCustomCSS(generatedCSS);
+    }
+  }, [components]);
 
   const handleAddComponent = (component: Component) => {
     setComponents([...components, component]);
+    if (components.length === 0) {
+    }
   };
 
   const handleUpdateComponent = (updatedComponent: Component) => {
     setComponents(
       components.map((c) => (c.id === updatedComponent.id ? updatedComponent : c))
     );
+    const newCSS = generateCSSFromComponents(
+      components.map((c) => (c.id === updatedComponent.id ? updatedComponent : c))
+    );
+    setCustomCSS(newCSS);
   };
 
   const handleDeleteComponent = () => {
@@ -66,19 +94,48 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
     }
   };
 
-  const generatedCode = generateHTMLFromComponents(components, canvasBg);
-  const displayCode = customCode || generatedCode;
+  const handleCSSChange = (newCSS: string) => {
+    setCustomCSS(newCSS);
+    if (!onboardingTips['first-css-edit']) {
+    }
+  };
 
-  const handleCodeChange = (newCode: string) => {
-    setCustomCode(newCode);
+  const handleCreateClass = () => {
+    const className = prompt('Enter new class name (without dot):');
+    if (className) {
+      const newRule = `.${className} {\n  \n}\n\n`;
+      setCustomCSS(customCSS + newRule);
+    }
+  };
+
+  const handleExport = () => {
+    const html = generateHTMLFromComponents(components, canvasBg, customCSS);
+    const css = generateSeparateCSS(components, canvasBg, customCSS);
+
+    const zip = {
+      'index.html': html,
+      'styles.css': css,
+    };
+
+    const zipContent = JSON.stringify(zip, null, 2);
+    const blob = new Blob([zipContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chillbuild-export-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleSaveProject = () => {
     const project = {
       name: 'ChillBuild Project',
       components,
-      customCode,
+      customCSS,
       canvasBg,
+      onboardingTips,
       savedAt: new Date().toISOString(),
     };
 
@@ -107,8 +164,11 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
           const project = JSON.parse(content);
           if (project.components) {
             setComponents(project.components);
-            setCustomCode(project.customCode || '');
+            setCustomCSS(project.customCSS || '');
             setCanvasBg(project.canvasBg || '#ffffff');
+            if (project.onboardingTips) {
+              setOnboardingTips(project.onboardingTips);
+            }
             setError(null);
           } else {
             setError('Invalid project file');
@@ -119,6 +179,10 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
       };
       reader.readAsText(file);
     }
+  };
+
+  const dismissTip = (trigger: OnboardingTip['trigger']) => {
+    setOnboardingTips({ ...onboardingTips, [trigger]: true });
   };
 
   return (
@@ -137,25 +201,39 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
             onChange={handleFileChange}
             style={{ display: 'none' }}
           />
-          <button className="action-btn" onClick={handleSaveProject}>
-            <FolderOpen size={18} />
-            Export
-          </button>
-          <button className="action-btn" onClick={handleLoadProject}>
-            <FolderOpen size={18} />
-            Import
-          </button>
-          <button className="action-btn ai-btn" onClick={() => setIsAIModalOpen(true)}>
-            <Sparkles size={18} />
-            AI Generate
-          </button>
-          <button
-            className={`action-btn ${showCode ? 'active' : ''}`}
-            onClick={() => setShowCode(!showCode)}
-          >
-            {showCode ? <Eye size={18} /> : <Code2 size={18} />}
-            {showCode ? 'Preview' : 'Code'}
-          </button>
+          <Tooltip content="Save your project as JSON to continue editing later">
+            <button className="action-btn" onClick={handleSaveProject}>
+              <FolderOpen size={18} />
+              Save
+            </button>
+          </Tooltip>
+          <Tooltip content="Load a previously saved project">
+            <button className="action-btn" onClick={handleLoadProject}>
+              <FolderOpen size={18} />
+              Load
+            </button>
+          </Tooltip>
+          <Tooltip content="Export your design as HTML and CSS files">
+            <button className="action-btn" onClick={handleExport}>
+              <Download size={18} />
+              Export
+            </button>
+          </Tooltip>
+          <Tooltip content="Generate a website design using AI">
+            <button className="action-btn ai-btn" onClick={() => setIsAIModalOpen(true)}>
+              <Sparkles size={18} />
+              AI Generate
+            </button>
+          </Tooltip>
+          <Tooltip content={showCSS ? 'Switch back to visual canvas' : 'Edit CSS styles directly'}>
+            <button
+              className={`action-btn ${showCSS ? 'active' : ''}`}
+              onClick={() => setShowCSS(!showCSS)}
+            >
+              {showCSS ? <Eye size={18} /> : <FileCode size={18} />}
+              {showCSS ? 'Canvas' : 'CSS'}
+            </button>
+          </Tooltip>
         </div>
       </header>
 
@@ -172,22 +250,13 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
         </aside>
 
         <main className="builder-main">
-          {showCode ? (
-            <div style={{ display: 'flex', height: '100%', gap: '1rem' }}>
-              <div style={{ flex: 1 }}>
-                <CodePanel code={displayCode} onChange={handleCodeChange} />
-              </div>
-              <div style={{ flex: 1, border: '1px solid #333', borderRadius: '8px', overflow: 'hidden' }}>
-                <div style={{ background: '#1e1e1e', padding: '12px', borderBottom: '1px solid #333' }}>
-                  <h3 style={{ margin: 0, color: '#fff', fontSize: '14px' }}>Live Preview</h3>
-                </div>
-                <iframe
-                  style={{ width: '100%', height: 'calc(100% - 50px)', border: 'none', background: '#fff' }}
-                  srcDoc={displayCode}
-                  title="Preview"
-                />
-              </div>
-            </div>
+          {showCSS ? (
+            <CSSEditor
+              css={customCSS}
+              onChange={handleCSSChange}
+              selectedComponent={selectedComponent}
+              onCreateClass={handleCreateClass}
+            />
           ) : (
             <Canvas
               components={components}
@@ -215,6 +284,22 @@ export default function Builder({ initialComponents = [] }: BuilderProps) {
         onGenerate={handleAIGenerate}
         isGenerating={isGenerating}
       />
+
+      {components.length === 1 && (
+        <OnboardingTips
+          trigger="first-component"
+          onDismiss={dismissTip}
+          shown={onboardingTips['first-component']}
+        />
+      )}
+
+      {showCSS && customCSS && (
+        <OnboardingTips
+          trigger="first-css-edit"
+          onDismiss={dismissTip}
+          shown={onboardingTips['first-css-edit']}
+        />
+      )}
     </div>
   );
 }

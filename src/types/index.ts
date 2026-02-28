@@ -2,6 +2,8 @@ export interface Component {
   id: string;
   type: 'button' | 'text' | 'image' | 'container' | 'heading' | 'input' | 'card' | 'navbar' | 'footer' | 'form' | 'video' | 'grid' | 'list' | 'badge' | 'divider' | 'link' | 'textarea';
   content: string;
+  className?: string;
+  customId?: string;
   position?: {
     x: number;
     y: number;
@@ -40,4 +42,17 @@ export interface Component {
     [key: string]: string | undefined;
   };
   children?: Component[];
+}
+
+export interface CSSRule {
+  selector: string;
+  properties: Record<string, string>;
+}
+
+export interface OnboardingTip {
+  id: string;
+  title: string;
+  message: string;
+  trigger: 'first-component' | 'first-css-edit' | 'first-class-create' | 'first-export';
+  shown: boolean;
 }
