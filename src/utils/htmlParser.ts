@@ -1,5 +1,9 @@
 import { Component } from '../types';
 
+/**
+ * Parse HTML body content back into Component array.
+ * Extracts className, customId, and maps elements to the correct component types.
+ */
 export const parseHTMLToComponents = (html: string): Component[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
@@ -9,40 +13,29 @@ export const parseHTMLToComponents = (html: string): Component[] => {
 
   const parseElement = (element: Element): Component | null => {
     componentIdCounter++;
-    const id = `parsed-${componentIdCounter}`;
+    const id = `parsed-${Date.now()}-${componentIdCounter}`;
 
-    const computedStyles = window.getComputedStyle(element);
-    const styles: Record<string, string> = {};
+    const tagName = element.tagName.toLowerCase();
 
-    const styleProperties = [
-      'backgroundColor',
-      'color',
-      'fontSize',
-      'fontWeight',
-      'padding',
-      'margin',
-      'borderRadius',
-      'border',
-      'width',
-      'height',
-      'display',
-      'flexDirection',
-      'justifyContent',
-      'alignItems',
-      'gap',
-      'textAlign',
-      'lineHeight',
-    ];
-
-    styleProperties.forEach((prop) => {
-      const value = computedStyles.getPropertyValue(
-        prop.replace(/([A-Z])/g, '-$1').toLowerCase()
-      );
-      if (value && value !== 'none' && value !== 'normal') {
-        styles[prop] = value;
+    // Skip wrapper divs that contain a single child — descend into the actual element
+    if (tagName === 'div' && element.children.length === 1) {
+      const wrapperClass = element.getAttribute('class') || '';
+      if (wrapperClass.endsWith('-wrapper')) {
+        const inner = element.children[0];
+        const comp = parseElement(inner);
+        if (comp) {
+          // Extract position/size from the wrapper class if available in CSS
+          comp.className = comp.className || wrapperClass.replace('-wrapper', '');
+        }
+        return comp;
       }
-    });
+    }
 
+    const className = element.getAttribute('class') || undefined;
+    const customId = element.getAttribute('id') || undefined;
+
+    // Build styles from inline style attribute (if any)
+    const styles: Record<string, string> = {};
     const inlineStyle = element.getAttribute('style');
     if (inlineStyle) {
       inlineStyle.split(';').forEach((style) => {
@@ -54,7 +47,6 @@ export const parseHTMLToComponents = (html: string): Component[] => {
       });
     }
 
-    const tagName = element.tagName.toLowerCase();
     let type: Component['type'] = 'container';
     let content = '';
 
@@ -84,16 +76,59 @@ export const parseHTMLToComponents = (html: string): Component[] => {
         type = 'input';
         content = element.getAttribute('placeholder') || '';
         break;
+      case 'textarea':
+        type = 'textarea';
+        content = element.getAttribute('placeholder') || '';
+        break;
+      case 'nav':
+        type = 'navbar';
+        content = '';
+        break;
+      case 'footer':
+        type = 'footer';
+        content = element.textContent || '';
+        break;
+      case 'form':
+        type = 'form';
+        content = '';
+        break;
+      case 'video':
+        type = 'video';
+        const source = element.querySelector('source');
+        content = source?.getAttribute('src') || '';
+        break;
+      case 'ul':
+      case 'ol':
+        type = 'list';
+        const items = Array.from(element.querySelectorAll('li'));
+        content = items.map(li => li.textContent || '').join('\n');
+        break;
+      case 'a':
+        type = 'link';
+        content = element.textContent || '';
+        break;
+      case 'span':
+        type = 'badge';
+        content = element.textContent || '';
+        break;
+      case 'hr':
+        type = 'divider';
+        content = '';
+        break;
       case 'div':
       case 'section':
       case 'article':
       case 'main':
       case 'aside':
       case 'header':
-      case 'footer':
-      case 'nav':
-        type = 'container';
-        content = '';
+        // Check if it"s a card (heuristic: div with text content and no children)
+        if (tagName === 'div' && element.children.length === 0 && element.textContent?.trim()) {
+          type = 'card';
+          content = element.textContent || '';
+        } else {
+          type = 'container';
+          content = '';
+        }
         break;
       default:
         return null;
@@ -103,12 +138,15 @@ export const parseHTMLToComponents = (html: string): Component[] => {
       id,
       type,
       content,
+      className,
+      customId,
       styles,
       position: { x: 0, y: 0 },
       size: { width: 200, height: 100 },
     };
 
-    if (type === 'container') {
+    // Parse children for container-like types
+    if (['container', 'navbar', 'form', 'grid'].includes(type)) {
       const children: Component[] = [];
       Array.from(element.children).forEach((child) => {
         const childComponent = parseElement(child);
@@ -124,8 +162,11 @@ export const parseHTMLToComponents = (html: string): Component[] => {
     return component;
   };
 
-  const bodyChildren = Array.from(doc.body.children);
-  bodyChildren.forEach((element) => {
+  // Try to find the canvas-container div first
+  const canvasContainer = doc.querySelector('.canvas-container');
+  const rootElement = canvasContainer || doc.body;
+
+  Array.from(rootElement.children).forEach((element) => {
     const component = parseElement(element);
     if (component) {
       components.push(component);

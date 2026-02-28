@@ -1,22 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Editor } from '@monaco-editor/react';
 import { Copy, Check, Plus, FileCode } from 'lucide-react';
 import { Component } from '../types';
+import PanelHeader from './PanelHeader';
 
 interface CSSEditorProps {
   css: string;
   onChange: (css: string) => void;
   selectedComponent: Component | null;
   onCreateClass: () => void;
+  onClose?: () => void;
 }
 
-export default function CSSEditor({ css, onChange, selectedComponent, onCreateClass }: CSSEditorProps) {
+export default function CSSEditor({ css, onChange, selectedComponent, onCreateClass, onClose }: CSSEditorProps) {
   const [copied, setCopied] = useState(false);
+  const [localValue, setLocalValue] = useState(css);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync incoming CSS
+  const prevCssRef = useRef(css);
+  useEffect(() => {
+    if (css !== prevCssRef.current) {
+      setLocalValue(css);
+      prevCssRef.current = css;
+    }
+  }, [css]);
 
   useEffect(() => {
     if (selectedComponent?.className) {
-      const lines = css.split('\n');
+      const lines = localValue.split('\n');
       const lineIndex = lines.findIndex(line => line.includes(`.${selectedComponent.className}`));
       if (lineIndex !== -1) {
         setHighlightedLine(lineIndex + 1);
@@ -24,10 +37,21 @@ export default function CSSEditor({ css, onChange, selectedComponent, onCreateCl
     } else {
       setHighlightedLine(null);
     }
-  }, [selectedComponent, css]);
+  }, [selectedComponent, localValue]);
+
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    const v = value || '';
+    setLocalValue(v);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onChange(v);
+      prevCssRef.current = v;
+    }, 400);
+  }, [onChange]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(css);
+    await navigator.clipboard.writeText(localValue);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -40,86 +64,34 @@ export default function CSSEditor({ css, onChange, selectedComponent, onCreateCl
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
-      <div
-        style={{
-          background: '#2d2d2d',
-          padding: '12px 16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid #404040',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FileCode size={18} style={{ color: '#ffffff' }} />
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff', margin: 0 }}>
-            CSS Editor
-          </h3>
-          {selectedComponent && (
-            <span
-              style={{
-                fontSize: '12px',
-                color: '#2563eb',
-                background: 'rgba(37, 99, 235, 0.2)',
-                padding: '2px 8px',
-                borderRadius: '4px',
-              }}
-            >
-              .{selectedComponent.className}
-            </span>
-          )}
+    <div className="editor-panel css-editor-panel">
+      <PanelHeader
+        title="CSS"
+        icon={<FileCode size={16} />}
+        onClose={onClose}
+        actions={
+          <>
+            <button className="panel-header-btn" onClick={onCreateClass} title="Create new CSS class">
+              <Plus size={14} />
+            </button>
+            <button className="panel-header-btn copy-btn" onClick={handleCopy} title="Copy CSS">
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </>
+        }
+      />
+      {selectedComponent && (
+        <div className="css-editor-context">
+          <span className="css-context-badge">.{selectedComponent.className}</span>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={onCreateClass}
-            style={{
-              padding: '6px 12px',
-              background: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-            title="Create new CSS class"
-          >
-            <Plus size={16} />
-            New Class
-          </button>
-          <button
-            onClick={handleCopy}
-            style={{
-              padding: '6px 12px',
-              background: '#404040',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-            title="Copy CSS to clipboard"
-          >
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      </div>
-      <div style={{ flex: 1, position: 'relative' }}>
+      )}
+      <div className="editor-body">
         <Editor
           height="100%"
           defaultLanguage="css"
-          value={css}
+          value={localValue}
           theme="vs-dark"
-          onChange={(value) => onChange(value || '')}
+          onChange={handleEditorChange}
           onMount={handleEditorDidMount}
           options={{
             readOnly: false,
@@ -144,17 +116,6 @@ export default function CSSEditor({ css, onChange, selectedComponent, onCreateCl
             },
           }}
         />
-      </div>
-      <div
-        style={{
-          background: '#2d2d2d',
-          padding: '8px 16px',
-          borderTop: '1px solid #404040',
-          fontSize: '12px',
-          color: '#888',
-        }}
-      >
-        Press Ctrl+S to save • Use Ctrl+Space for suggestions
       </div>
     </div>
   );

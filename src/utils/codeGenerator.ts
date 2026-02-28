@@ -16,12 +16,15 @@ export const generateCSSFromComponents = (components: Component[]): string => {
         height: `${size.height}px`,
       };
 
-      const innerStyles = {
-        ...component.styles,
-        width: '100%',
-        height: '100%',
-        boxSizing: 'border-box',
-      };
+      const innerStyles: Record<string, string> = {};
+      Object.entries(component.styles).forEach(([key, value]) => {
+        if (value !== undefined) {
+          innerStyles[key] = value;
+        }
+      });
+      innerStyles['width'] = '100%';
+      innerStyles['height'] = '100%';
+      innerStyles['boxSizing'] = 'border-box';
 
       cssRules.set(`.${component.className}-wrapper`, positionStyles);
       cssRules.set(`.${component.className}`, innerStyles);
@@ -47,100 +50,106 @@ export const generateCSSFromComponents = (components: Component[]): string => {
   return css;
 };
 
+/**
+ * Generate clean HTML body content from components.
+ * No inline styles — uses class and id attributes only.
+ */
+export const generateBodyHTML = (components: Component[]): string => {
+  const renderComponent = (component: Component, indent: number = 2): string => {
+    const pad = ' '.repeat(indent);
+    const className = component.className || '';
+    const customId = component.customId || '';
+    const wrapperClass = className ? `${className}-wrapper` : '';
+    const idAttr = customId ? ` id="${customId}"` : '';
+
+    let innerContent = '';
+    switch (component.type) {
+      case 'button':
+        innerContent = `${pad}  <button class="${className}"${idAttr}>${component.content}</button>`;
+        break;
+      case 'text':
+        innerContent = `${pad}  <p class="${className}"${idAttr}>${component.content}</p>`;
+        break;
+      case 'heading':
+        innerContent = `${pad}  <h1 class="${className}"${idAttr}>${component.content}</h1>`;
+        break;
+      case 'image':
+        innerContent = `${pad}  <img src="${component.content}" alt="Image" class="${className}"${idAttr} />`;
+        break;
+      case 'input':
+        innerContent = `${pad}  <input type="text" placeholder="${component.content || 'Enter text...'}" class="${className}"${idAttr} />`;
+        break;
+      case 'textarea':
+        innerContent = `${pad}  <textarea placeholder="${component.content || 'Enter text...'}" class="${className}"${idAttr}></textarea>`;
+        break;
+      case 'container': {
+        const children = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = children
+          ? `${pad}  <div class="${className}"${idAttr}>\n${children}\n${pad}  </div>`
+          : `${pad}  <div class="${className}"${idAttr}></div>`;
+        break;
+      }
+      case 'card':
+        innerContent = `${pad}  <div class="${className}"${idAttr}>${component.content}</div>`;
+        break;
+      case 'navbar': {
+        const navChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = navChildren
+          ? `${pad}  <nav class="${className}"${idAttr}>\n${navChildren}\n${pad}  </nav>`
+          : `${pad}  <nav class="${className}"${idAttr}></nav>`;
+        break;
+      }
+      case 'footer':
+        innerContent = `${pad}  <footer class="${className}"${idAttr}>${component.content}</footer>`;
+        break;
+      case 'form': {
+        const formChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = formChildren
+          ? `${pad}  <form class="${className}"${idAttr}>\n${formChildren}\n${pad}  </form>`
+          : `${pad}  <form class="${className}"${idAttr}></form>`;
+        break;
+      }
+      case 'video':
+        innerContent = `${pad}  <video controls class="${className}"${idAttr}><source src="${component.content}" type="video/mp4"></video>`;
+        break;
+      case 'grid': {
+        const gridChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
+        innerContent = gridChildren
+          ? `${pad}  <div class="${className}"${idAttr}>\n${gridChildren}\n${pad}  </div>`
+          : `${pad}  <div class="${className}"${idAttr}></div>`;
+        break;
+      }
+      case 'list': {
+        const items = component.content.split('\n').filter(item => item.trim());
+        const listItems = items.map(item => `${pad}    <li>${item}</li>`).join('\n');
+        innerContent = `${pad}  <ul class="${className}"${idAttr}>\n${listItems}\n${pad}  </ul>`;
+        break;
+      }
+      case 'badge':
+        innerContent = `${pad}  <span class="${className}"${idAttr}>${component.content}</span>`;
+        break;
+      case 'divider':
+        innerContent = `${pad}  <hr class="${className}"${idAttr} />`;
+        break;
+      case 'link':
+        innerContent = `${pad}  <a href="#" class="${className}"${idAttr}>${component.content}</a>`;
+        break;
+      default:
+        innerContent = '';
+    }
+
+    return `${pad}<div class="${wrapperClass}">\n${innerContent}\n${pad}</div>`;
+  };
+
+  return components.map(c => renderComponent(c)).join('\n');
+};
+
 export const generateHTMLFromComponents = (
   components: Component[],
   _canvasBg: string = '#ffffff',
   _customCSS?: string
 ): string => {
-  const renderComponent = (component: Component): string => {
-    const className = component.className || '';
-    const customId = component.customId || '';
-    const wrapperClass = className ? `${className}-wrapper` : '';
-
-    let innerContent = '';
-    switch (component.type) {
-      case 'button':
-        innerContent = `<button class="${className}" id="${customId}">${component.content}</button>`;
-        break;
-
-      case 'text':
-        innerContent = `<p class="${className}" id="${customId}">${component.content}</p>`;
-        break;
-
-      case 'heading':
-        innerContent = `<h1 class="${className}" id="${customId}">${component.content}</h1>`;
-        break;
-
-      case 'image':
-        innerContent = `<img src="${component.content}" alt="Image" class="${className}" id="${customId}" />`;
-        break;
-
-      case 'input':
-        innerContent = `<input type="text" placeholder="${component.content || 'Enter text...'}" class="${className}" id="${customId}" />`;
-        break;
-
-      case 'textarea':
-        innerContent = `<textarea placeholder="${component.content || 'Enter text...'}" class="${className}" id="${customId}"></textarea>`;
-        break;
-
-      case 'container':
-        const childrenHTML = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<div class="${className}" id="${customId}">${childrenHTML}</div>`;
-        break;
-
-      case 'card':
-        innerContent = `<div class="${className}" id="${customId}">${component.content}</div>`;
-        break;
-
-      case 'navbar':
-        const navChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<nav class="${className}" id="${customId}">${navChildren}</nav>`;
-        break;
-
-      case 'footer':
-        innerContent = `<footer class="${className}" id="${customId}">${component.content}</footer>`;
-        break;
-
-      case 'form':
-        const formChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<form class="${className}" id="${customId}">${formChildren}</form>`;
-        break;
-
-      case 'video':
-        innerContent = `<video controls class="${className}" id="${customId}"><source src="${component.content}" type="video/mp4"></video>`;
-        break;
-
-      case 'grid':
-        const gridChildren = component.children?.map(renderComponent).join('\n') || '';
-        innerContent = `<div class="${className}" id="${customId}">${gridChildren}</div>`;
-        break;
-
-      case 'list':
-        const items = component.content.split('\n').filter((item) => item.trim());
-        const listItems = items.map((item) => `<li>${item}</li>`).join('\n');
-        innerContent = `<ul class="${className}" id="${customId}">${listItems}</ul>`;
-        break;
-
-      case 'badge':
-        innerContent = `<span class="${className}" id="${customId}">${component.content}</span>`;
-        break;
-
-      case 'divider':
-        innerContent = `<hr class="${className}" id="${customId}" />`;
-        break;
-
-      case 'link':
-        innerContent = `<a href="#" class="${className}" id="${customId}">${component.content}</a>`;
-        break;
-
-      default:
-        innerContent = '';
-    }
-
-    return `<div class="${wrapperClass}">${innerContent}</div>`;
-  };
-
-  const componentsHTML = components.map(renderComponent).join('\n');
+  const bodyHTML = generateBodyHTML(components);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -152,7 +161,7 @@ export const generateHTMLFromComponents = (
 </head>
 <body>
 <div class="canvas-container">
-${componentsHTML}
+${bodyHTML}
 </div>
 </body>
 </html>`;
