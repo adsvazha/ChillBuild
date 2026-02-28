@@ -140,7 +140,7 @@ export const parseHTMLToComponents = (html: string): Component[] => {
       content,
       className,
       customId,
-      styles,
+      styles: { base: styles },
       position: { x: 0, y: 0 },
       size: { width: 200, height: 100 },
     };

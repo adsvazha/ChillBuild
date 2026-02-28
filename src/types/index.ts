@@ -13,33 +13,11 @@ export interface Component {
     height: number;
   };
   styles: {
-    width?: string;
-    height?: string;
-    backgroundColor?: string;
-    color?: string;
-    fontSize?: string;
-    fontWeight?: string;
-    padding?: string;
-    margin?: string;
-    borderRadius?: string;
-    border?: string;
-    display?: string;
-    flexDirection?: string;
-    justifyContent?: string;
-    alignItems?: string;
-    gap?: string;
-    lineHeight?: string;
-    textAlign?: string;
-    objectFit?: string;
-    boxShadow?: string;
-    gridTemplateColumns?: string;
-    listStylePosition?: string;
-    textDecoration?: string;
-    cursor?: string;
-    minHeight?: string;
-    maxWidth?: string;
-    resize?: string;
-    [key: string]: string | undefined;
+    base: Record<string, string>;
+    hover?: Record<string, string>;
+    active?: Record<string, string>;
+    tablet?: Record<string, string>;
+    mobile?: Record<string, string>;
   };
   children?: Component[];
 }
@@ -82,8 +60,11 @@ export interface PanelConfig {
 
 export type LayoutPreset = 'design' | 'code' | 'preview';
 
+export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
+
 export interface WorkspaceState {
   panels: PanelConfig[];
   activePreset: LayoutPreset;
   focusMode: boolean;
+  activeBreakpoint: Breakpoint;
 }

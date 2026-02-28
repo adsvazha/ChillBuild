@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { PanelConfig, PanelId, LayoutPreset, WorkspaceState } from '../types';
+import { PanelConfig, PanelId, LayoutPreset, WorkspaceState, Breakpoint } from '../types';
 
 const defaultPanels: PanelConfig[] = [
     { id: 'components', title: 'Components', visible: true, width: 220, minWidth: 180, collapsed: false },
@@ -45,6 +45,7 @@ interface WorkspaceContextType {
     setPreset: (preset: LayoutPreset) => void;
     toggleFocusMode: () => void;
     isPanelVisible: (id: PanelId) => boolean;
+    setActiveBreakpoint: (breakpoint: Breakpoint) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
@@ -64,6 +65,7 @@ export default function WorkspaceProvider({ children }: WorkspaceProviderProps) 
         panels: defaultPanels,
         activePreset: 'design',
         focusMode: false,
+        activeBreakpoint: 'desktop',
     });
 
     const togglePanel = useCallback((id: PanelId) => {
@@ -115,6 +117,13 @@ export default function WorkspaceProvider({ children }: WorkspaceProviderProps) 
         }));
     }, []);
 
+    const setActiveBreakpoint = useCallback((breakpoint: Breakpoint) => {
+        setState(prev => ({
+            ...prev,
+            activeBreakpoint: breakpoint,
+        }));
+    }, []);
+
     const isPanelVisible = useCallback((id: PanelId) => {
         if (state.focusMode) return id === 'canvas';
         const panel = state.panels.find(p => p.id === id);
@@ -122,7 +131,7 @@ export default function WorkspaceProvider({ children }: WorkspaceProviderProps) 
     }, [state.focusMode, state.panels]);
 
     return (
-        <WorkspaceContext.Provider value={{ state, togglePanel, collapsePanel, setPanelWidth, setPreset, toggleFocusMode, isPanelVisible }}>
+        <WorkspaceContext.Provider value={{ state, togglePanel, collapsePanel, setPanelWidth, setPreset, toggleFocusMode, isPanelVisible, setActiveBreakpoint }}>
             {children}
         </WorkspaceContext.Provider>
     );

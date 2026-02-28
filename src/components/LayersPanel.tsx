@@ -26,15 +26,18 @@ function LayerItem({ component, level, selectedId, onSelect, onUpdateComponent, 
 
     // Custom states for visibility and locking (stored in properties for now, or just local if not in Component type yet)
     // We'll store them in component.styles for simplicity without modifying the Component type further
-    const isHidden = component.styles?.display === 'none';
-    const isLocked = component.styles?.pointerEvents === 'none';
+    const isHidden = component.styles?.base?.display === 'none';
+    const isLocked = component.styles?.base?.pointerEvents === 'none';
 
     const handleToggleVisibility = (e: React.MouseEvent) => {
         e.stopPropagation();
         onUpdateComponent(component.id, {
             styles: {
                 ...component.styles,
-                display: isHidden ? undefined : 'none'
+                base: {
+                    ...component.styles.base,
+                    display: isHidden ? '' : 'none'
+                }
             }
         });
     };
@@ -44,7 +47,10 @@ function LayerItem({ component, level, selectedId, onSelect, onUpdateComponent, 
         onUpdateComponent(component.id, {
             styles: {
                 ...component.styles,
-                pointerEvents: isLocked ? undefined : 'none'
+                base: {
+                    ...component.styles.base,
+                    pointerEvents: isLocked ? '' : 'none'
+                }
             }
         });
     };

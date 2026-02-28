@@ -2,6 +2,7 @@ import { Component } from '../types';
 
 export class CSSManager {
   private rules: Map<string, Record<string, string>> = new Map();
+  private mediaRules: Map<string, Map<string, Record<string, string>>> = new Map();
   private classCounter: Map<string, number> = new Map();
 
   generateClassName(type: string): string {
@@ -16,20 +17,42 @@ export class CSSManager {
     return `${type}-${count + 1}`;
   }
 
-  addRule(selector: string, properties: Record<string, string>): void {
-    this.rules.set(selector, properties);
+  addRule(selector: string, properties: Record<string, string>, mediaQuery?: string): void {
+    if (mediaQuery) {
+      if (!this.mediaRules.has(mediaQuery)) {
+        this.mediaRules.set(mediaQuery, new Map());
+      }
+      this.mediaRules.get(mediaQuery)!.set(selector, properties);
+    } else {
+      this.rules.set(selector, properties);
+    }
   }
 
-  updateRule(selector: string, properties: Record<string, string>): void {
-    const existing = this.rules.get(selector) || {};
-    this.rules.set(selector, { ...existing, ...properties });
+  updateRule(selector: string, properties: Record<string, string>, mediaQuery?: string): void {
+    if (mediaQuery) {
+      if (!this.mediaRules.has(mediaQuery)) {
+        this.mediaRules.set(mediaQuery, new Map());
+      }
+      const existing = this.mediaRules.get(mediaQuery)!.get(selector) || {};
+      this.mediaRules.get(mediaQuery)!.set(selector, { ...existing, ...properties });
+    } else {
+      const existing = this.rules.get(selector) || {};
+      this.rules.set(selector, { ...existing, ...properties });
+    }
   }
 
-  deleteRule(selector: string): void {
-    this.rules.delete(selector);
+  deleteRule(selector: string, mediaQuery?: string): void {
+    if (mediaQuery) {
+      this.mediaRules.get(mediaQuery)?.delete(selector);
+    } else {
+      this.rules.delete(selector);
+    }
   }
 
-  getRule(selector: string): Record<string, string> | undefined {
+  getRule(selector: string, mediaQuery?: string): Record<string, string> | undefined {
+    if (mediaQuery) {
+      return this.mediaRules.get(mediaQuery)?.get(selector);
+    }
     return this.rules.get(selector);
   }
 
@@ -39,6 +62,13 @@ export class CSSManager {
       this.rules.delete(oldSelector);
       this.rules.set(newSelector, properties);
     }
+    this.mediaRules.forEach((map) => {
+      const p = map.get(oldSelector);
+      if (p) {
+        map.delete(oldSelector);
+        map.set(newSelector, p);
+      }
+    });
   }
 
   generateCSS(): string {
@@ -51,17 +81,72 @@ export class CSSManager {
       });
       css += '}\n\n';
     });
+    this.mediaRules.forEach((rulesMap, mediaQuery) => {
+      css += `${mediaQuery} {\n`;
+      rulesMap.forEach((properties, selector) => {
+        css += `  ${selector} {\n`;
+        Object.entries(properties).forEach(([key, value]) => {
+          const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+          css += `    ${cssKey}: ${value};\n`;
+        });
+        css += `  }\n`;
+      });
+      css += '}\n\n';
+    });
     return css;
   }
 
   parseCSS(cssText: string): void {
     this.rules.clear();
+    this.mediaRules.clear();
 
+    // A simple parser for nested media queries
+    let currentMedia: string | null = null;
+    let blockStart = 0;
+    let inMedia = false;
+    let braceCount = 0;
+
+    for (let i = 0; i < cssText.length; i++) {
+      if (cssText[i] === '{') {
+        if (braceCount === 0) {
+          const beforeBrace = cssText.substring(blockStart, i).trim();
+          if (beforeBrace.startsWith('@media')) {
+            inMedia = true;
+            currentMedia = beforeBrace;
+            blockStart = i + 1;
+            braceCount++;
+            continue;
+          }
+        }
+        braceCount++;
+      } else if (cssText[i] === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          if (inMedia) {
+            const innerCSS = cssText.substring(blockStart, i);
+            this.parseRules(innerCSS, currentMedia!);
+            inMedia = false;
+            currentMedia = null;
+          } else {
+            const ruleText = cssText.substring(blockStart, i + 1);
+            this.parseRules(ruleText);
+          }
+          blockStart = i + 1;
+        }
+      }
+    }
+
+    // Catch-all if CSS was flat without @media or unbalanced
+    if (blockStart < cssText.length && !inMedia) {
+      this.parseRules(cssText.substring(blockStart));
+    }
+  }
+
+  private parseRules(cssChunk: string, mediaQuery?: string) {
     const ruleRegex = /([^{]+)\{([^}]+)\}/g;
     let match;
-
-    while ((match = ruleRegex.exec(cssText)) !== null) {
-      const selector = match[1].trim();
+    while ((match = ruleRegex.exec(cssChunk)) !== null) {
+      const selectors = match[1].split(',').map(s => s.trim());
       const propertiesText = match[2].trim();
 
       const properties: Record<string, string> = {};
@@ -75,14 +160,18 @@ export class CSSManager {
         properties[camelKey] = value;
       }
 
-      this.rules.set(selector, properties);
+      for (const selector of selectors) {
+        if (selector) {
+          this.addRule(selector, properties, mediaQuery);
+        }
+      }
     }
   }
 
   componentToCSS(component: Component): void {
     if (component.className) {
       const cleanStyles: Record<string, string> = {};
-      Object.entries(component.styles).forEach(([key, value]) => {
+      Object.entries(component.styles.base).forEach(([key, value]) => {
         if (value !== undefined) {
           cleanStyles[key] = value;
         }
@@ -97,7 +186,10 @@ export class CSSManager {
     }
   }
 
-  getAllSelectors(): string[] {
+  getAllSelectors(mediaQuery?: string): string[] {
+    if (mediaQuery) {
+      return Array.from(this.mediaRules.get(mediaQuery)?.keys() || []);
+    }
     return Array.from(this.rules.keys());
   }
 }
@@ -118,19 +210,37 @@ export const stylesToCSS = (styles: Record<string, string>): string => {
  */
 export const applyCSSToComponents = (cssText: string, components: Component[]): Component[] => {
   const manager = new CSSManager();
-  manager.parseCSS(cssText);
+
+  // Remove comments before parsing to prevent regex mess-ups
+  const noCommentsCss = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  manager.parseCSS(noCommentsCss);
 
   const applyToComponent = (comp: Component): Component => {
     const updated = { ...comp };
+    updated.styles = { ...comp.styles };
 
     if (comp.className) {
-      // Look for matching CSS rule
+      // Base rule
       const rule = manager.getRule(`.${comp.className}`);
-      if (rule) {
-        updated.styles = { ...comp.styles, ...rule };
-      }
+      updated.styles.base = rule ? { ...rule } : { ...comp.styles.base };
 
-      // Also check wrapper rule for position/size
+      // Hover rule
+      const hoverRule = manager.getRule(`.${comp.className}:hover`);
+      if (hoverRule) updated.styles.hover = { ...hoverRule };
+
+      // Active rule
+      const activeRule = manager.getRule(`.${comp.className}:active`);
+      if (activeRule) updated.styles.active = { ...activeRule };
+
+      // Tablet rule
+      const tabletRule = manager.getRule(`.${comp.className}`, '@media (max-width: 768px)');
+      if (tabletRule) updated.styles.tablet = { ...tabletRule };
+
+      // Mobile rule
+      const mobileRule = manager.getRule(`.${comp.className}`, '@media (max-width: 480px)');
+      if (mobileRule) updated.styles.mobile = { ...mobileRule };
+
+      // Also check wrapper rule for position/size (which should be base level)
       const wrapperRule = manager.getRule(`.${comp.className}-wrapper`);
       if (wrapperRule) {
         if (wrapperRule.left) {
@@ -173,13 +283,27 @@ export const mergeCSS = (generatedCSS: string, userCSS: string): string => {
   const userManager = new CSSManager();
   userManager.parseCSS(userCSS);
 
-  // User rules override generated rules
+  // User rules override generated rules (Base)
   userManager.getAllSelectors().forEach(selector => {
     const userRule = userManager.getRule(selector);
     if (userRule) {
       genManager.addRule(selector, userRule);
     }
   });
+
+  // Override Media Queries
+  // For tablet
+  userManager.getAllSelectors('@media (max-width: 768px)').forEach(selector => {
+    const userRule = userManager.getRule(selector, '@media (max-width: 768px)');
+    if (userRule) genManager.addRule(selector, userRule, '@media (max-width: 768px)');
+  });
+
+  // For mobile
+  userManager.getAllSelectors('@media (max-width: 480px)').forEach(selector => {
+    const userRule = userManager.getRule(selector, '@media (max-width: 480px)');
+    if (userRule) genManager.addRule(selector, userRule, '@media (max-width: 480px)');
+  });
+
 
   return genManager.generateCSS();
 };

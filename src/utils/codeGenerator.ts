@@ -1,13 +1,18 @@
 import { Component } from '../types';
 
 export const generateCSSFromComponents = (components: Component[]): string => {
-  const cssRules: Map<string, Record<string, string>> = new Map();
+  const baseRules: Map<string, Record<string, string>> = new Map();
+  const hoverRules: Map<string, Record<string, string>> = new Map();
+  const activeRules: Map<string, Record<string, string>> = new Map();
+  const tabletRules: Map<string, Record<string, string>> = new Map();
+  const mobileRules: Map<string, Record<string, string>> = new Map();
 
   const processComponent = (component: Component) => {
     if (component.className) {
       const position = component.position || { x: 0, y: 0 };
       const size = component.size || { width: 200, height: 100 };
 
+      // Base absolute positioning injected via wrapper
       const positionStyles = {
         position: 'absolute',
         left: `${position.x}px`,
@@ -16,18 +21,34 @@ export const generateCSSFromComponents = (components: Component[]): string => {
         height: `${size.height}px`,
       };
 
-      const innerStyles: Record<string, string> = {};
-      Object.entries(component.styles).forEach(([key, value]) => {
-        if (value !== undefined) {
-          innerStyles[key] = value;
-        }
-      });
-      innerStyles['width'] = '100%';
-      innerStyles['height'] = '100%';
-      innerStyles['boxSizing'] = 'border-box';
+      baseRules.set(`.${component.className}-wrapper`, positionStyles);
 
-      cssRules.set(`.${component.className}-wrapper`, positionStyles);
-      cssRules.set(`.${component.className}`, innerStyles);
+      // Process base styles
+      const innerBaseStyles: Record<string, string> = { ...component.styles.base };
+      innerBaseStyles['width'] = '100%';
+      innerBaseStyles['height'] = '100%';
+      innerBaseStyles['boxSizing'] = 'border-box';
+      baseRules.set(`.${component.className}`, innerBaseStyles);
+
+      // Process hover
+      if (component.styles.hover && Object.keys(component.styles.hover).length > 0) {
+        hoverRules.set(`.${component.className}:hover`, { ...component.styles.hover });
+      }
+
+      // Process active
+      if (component.styles.active && Object.keys(component.styles.active).length > 0) {
+        activeRules.set(`.${component.className}:active`, { ...component.styles.active });
+      }
+
+      // Process tablet
+      if (component.styles.tablet && Object.keys(component.styles.tablet).length > 0) {
+        tabletRules.set(`.${component.className}`, { ...component.styles.tablet });
+      }
+
+      // Process mobile
+      if (component.styles.mobile && Object.keys(component.styles.mobile).length > 0) {
+        mobileRules.set(`.${component.className}`, { ...component.styles.mobile });
+      }
     }
 
     if (component.children) {
@@ -37,15 +58,48 @@ export const generateCSSFromComponents = (components: Component[]): string => {
 
   components.forEach(processComponent);
 
-  let css = '';
-  cssRules.forEach((properties, selector) => {
-    css += `${selector} {\n`;
-    Object.entries(properties).forEach(([key, value]) => {
-      const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-      css += `  ${cssKey}: ${value};\n`;
+  const formatRules = (rules: Map<string, Record<string, string>>, indent = 0): string => {
+    let output = '';
+    const pad = ' '.repeat(indent);
+    rules.forEach((properties, selector) => {
+      output += `${pad}${selector} {\n`;
+      Object.entries(properties).forEach(([key, value]) => {
+        if (value !== undefined) {
+          const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+          output += `${pad}  ${cssKey}: ${value};\n`;
+        }
+      });
+      output += `${pad}}\n\n`;
     });
-    css += '}\n\n';
-  });
+    return output;
+  };
+
+  let css = '/* === Base Styles === */\n';
+  css += formatRules(baseRules);
+
+  if (hoverRules.size > 0) {
+    css += '/* === Hover Styles === */\n';
+    css += formatRules(hoverRules);
+  }
+
+  if (activeRules.size > 0) {
+    css += '/* === Active Styles === */\n';
+    css += formatRules(activeRules);
+  }
+
+  if (tabletRules.size > 0) {
+    css += '/* === Tablet Breakpoint (max-width: 768px) === */\n';
+    css += `@media (max-width: 768px) {\n`;
+    css += formatRules(tabletRules, 2);
+    css += `}\n\n`;
+  }
+
+  if (mobileRules.size > 0) {
+    css += '/* === Mobile Breakpoint (max-width: 480px) === */\n';
+    css += `@media (max-width: 480px) {\n`;
+    css += formatRules(mobileRules, 2);
+    css += `}\n\n`;
+  }
 
   return css;
 };

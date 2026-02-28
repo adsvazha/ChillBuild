@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, Grid3x3, Palette, ChevronUp, ChevronDown, Maximize2 } from 'lucide-react';
 import { Component } from '../types';
 import { createComponent } from '../utils/componentDefaults';
+import { useWorkspace } from './WorkspaceProvider';
 
 interface CanvasProps {
   components: Component[];
@@ -23,6 +24,11 @@ export default function Canvas({
   onContextMenu,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { state: workspaceState } = useWorkspace();
+  const { activeBreakpoint } = workspaceState;
+
+  const canvasWidth = activeBreakpoint === 'mobile' ? 375 : activeBreakpoint === 'tablet' ? 768 : 1200;
+  const canvasHeight = Math.max(800, activeBreakpoint === 'mobile' ? 667 : activeBreakpoint === 'tablet' ? 1024 : 800);
 
   const [draggedComponent, setDraggedComponent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -90,8 +96,7 @@ export default function Canvas({
       const component = components.find((c) => c.id === draggedComponent);
       if (!component?.size) return;
 
-      const canvasWidth = 1200;
-      const canvasHeight = 800;
+      if (!component?.size) return;
 
       let newX = snapToGrid(rawX);
       let newY = snapToGrid(rawY);
@@ -186,8 +191,15 @@ export default function Canvas({
       userSelect: 'none',
     };
 
+    // Merge styles based on breakpoint cascade
+    const mergedStyles = {
+      ...component.styles.base,
+      ...(activeBreakpoint === 'tablet' || activeBreakpoint === 'mobile' ? component.styles.tablet : {}),
+      ...(activeBreakpoint === 'mobile' ? component.styles.mobile : {})
+    } as React.CSSProperties;
+
     const componentStyle: React.CSSProperties = {
-      ...(component.styles as React.CSSProperties),
+      ...mergedStyles,
       width: '100%',
       height: '100%',
       boxSizing: 'border-box',
@@ -459,8 +471,15 @@ export default function Canvas({
             }}
             style={{
               backgroundColor: canvasBg,
-              minWidth: '1200px',
-              minHeight: '800px',
+              minWidth: `${canvasWidth}px`,
+              minHeight: `${canvasHeight}px`,
+              margin: '0 auto', /* center it when smaller */
+              width: `${canvasWidth}px`,
+              overflow: 'hidden',
+              position: 'relative',
+              boxShadow: activeBreakpoint !== 'desktop' ? '0 0 0 1px #e5e7eb, 0 10px 15px -3px rgba(0,0,0,0.1)' : 'none',
+              borderRadius: activeBreakpoint !== 'desktop' ? '12px' : '0',
+              transition: 'all 0.3s ease-in-out'
             }}
           >
             {components.length === 0 ? (

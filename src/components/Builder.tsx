@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight, Undo2, Redo2, Copy, Clipboard, Trash2, CopyPlus, ChevronUp, ChevronDown, Layers } from 'lucide-react';
+import { Sparkles, FolderOpen, Download, Layout, Code2, Eye, Maximize, PanelLeft, PanelRight, Undo2, Redo2, Copy, Clipboard, Trash2, CopyPlus, ChevronUp, ChevronDown, Layers, Monitor, Tablet, Smartphone } from 'lucide-react';
 import WorkspaceProvider, { useWorkspace } from './WorkspaceProvider';
 import ResizablePanel from './ResizablePanel';
 import ComponentLibrary from './ComponentLibrary';
@@ -47,7 +47,8 @@ const cloneComponent = (comp: Component, offsetX = 20, offsetY = 20): Component 
 });
 
 function BuilderInner({ initialComponents = [] }: BuilderProps) {
-  const { state, setPreset, toggleFocusMode, togglePanel, isPanelVisible } = useWorkspace();
+  const { state: workspaceState, setPreset, toggleFocusMode, togglePanel, isPanelVisible, setActiveBreakpoint } = useWorkspace();
+  const { activeBreakpoint, activePreset, focusMode } = workspaceState;
 
   // Multi-page state
   const [pages, setPages] = useState<Page[]>([createPage('index', initialComponents)]);
@@ -507,7 +508,7 @@ ${generateBodyHTML(savePage.components)}
   ];
 
   return (
-    <div className={`builder ${state.focusMode ? 'focus-mode' : ''}`}>
+    <div className={`builder ${focusMode ? 'focus-mode' : ''}`}>
       {/* Header */}
       <header className="builder-header">
         <div className="builder-logo">
@@ -519,7 +520,7 @@ ${generateBodyHTML(savePage.components)}
           {presetButtons.map(({ preset, icon: Icon, label }) => (
             <button
               key={preset}
-              className={`preset-btn ${state.activePreset === preset ? 'active' : ''}`}
+              className={`preset-btn ${activePreset === preset ? 'active' : ''}`}
               onClick={() => setPreset(preset)}
               title={`${label} Mode`}
             >
@@ -530,10 +531,41 @@ ${generateBodyHTML(savePage.components)}
           <div className="preset-divider" />
           <Tooltip content="Toggle focus mode — full canvas view">
             <button
-              className={`preset-btn ${state.focusMode ? 'active' : ''}`}
+              className={`preset-btn ${focusMode ? 'active' : ''}`}
               onClick={toggleFocusMode}
             >
               <Maximize size={16} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Breakpoint Switcher */}
+        <div className="builder-breakpoints" style={{ display: 'flex', gap: '4px', background: '#f3f4f6', padding: '4px', borderRadius: '6px' }}>
+          <Tooltip content="Desktop (Base)">
+            <button
+              className={`action-btn ${activeBreakpoint === 'desktop' ? 'active' : ''}`}
+              onClick={() => setActiveBreakpoint('desktop')}
+              style={{ background: activeBreakpoint === 'desktop' ? '#ffffff' : 'transparent', boxShadow: activeBreakpoint === 'desktop' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+            >
+              <Monitor size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip content="Tablet (< 768px)">
+            <button
+              className={`action-btn ${activeBreakpoint === 'tablet' ? 'active' : ''}`}
+              onClick={() => setActiveBreakpoint('tablet')}
+              style={{ background: activeBreakpoint === 'tablet' ? '#ffffff' : 'transparent', boxShadow: activeBreakpoint === 'tablet' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+            >
+              <Tablet size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip content="Mobile (< 480px)">
+            <button
+              className={`action-btn ${activeBreakpoint === 'mobile' ? 'active' : ''}`}
+              onClick={() => setActiveBreakpoint('mobile')}
+              style={{ background: activeBreakpoint === 'mobile' ? '#ffffff' : 'transparent', boxShadow: activeBreakpoint === 'mobile' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none' }}
+            >
+              <Smartphone size={16} />
             </button>
           </Tooltip>
         </div>

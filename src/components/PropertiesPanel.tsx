@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Component } from '../types';
 import { Trash2, Upload } from 'lucide-react';
 import Slider from './Slider';
+import { useWorkspace } from './WorkspaceProvider';
 
 interface PropertiesPanelProps {
   component: Component | null;
@@ -13,6 +15,10 @@ export default function PropertiesPanel({
   onUpdateComponent,
   onDeleteComponent,
 }: PropertiesPanelProps) {
+  const { state: workspaceState } = useWorkspace();
+  const { activeBreakpoint } = workspaceState;
+  const [pseudoState, setPseudoState] = useState<'base' | 'hover' | 'active'>('base');
+
   if (!component) {
     return (
       <div className="properties-panel">
@@ -26,6 +32,13 @@ export default function PropertiesPanel({
     );
   }
 
+  // Determine which styles object we are editing
+  const activeStyleKey = activeBreakpoint === 'desktop' ? pseudoState : activeBreakpoint;
+
+  // Safe accessor bridging with fallback
+  // The type of component.styles is { base: Record..., hover?: Record... }
+  const currentStyles = (component.styles[activeStyleKey as keyof typeof component.styles] as Record<string, string>) || {};
+
   const handleContentChange = (content: string) => {
     onUpdateComponent({ ...component, content });
   };
@@ -33,8 +46,37 @@ export default function PropertiesPanel({
   const handleStyleChange = (key: string, value: string) => {
     onUpdateComponent({
       ...component,
-      styles: { ...component.styles, [key]: value },
+      styles: {
+        ...component.styles,
+        [activeStyleKey]: {
+          ...currentStyles,
+          [key]: value
+        }
+      },
     });
+  };
+
+  const renderStateToggle = () => {
+    if (activeBreakpoint !== 'desktop') {
+      return (
+        <div className="property-section" style={{ paddingBottom: '8px', borderBottom: '1px solid #e5e7eb', marginBottom: '16px' }}>
+          <h4>Editing {activeBreakpoint}</h4>
+        </div>
+      );
+    }
+    return (
+      <div className="property-group state-toggle-group" style={{ paddingBottom: '16px', borderBottom: '1px solid #e5e7eb', marginBottom: '16px' }}>
+        <label>State</label>
+        <select
+          value={pseudoState}
+          onChange={(e) => setPseudoState(e.target.value as any)}
+        >
+          <option value="base">Normal</option>
+          <option value="hover">Hover (:hover)</option>
+          <option value="active">Active (:active)</option>
+        </select>
+      </div>
+    );
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,7 +108,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Font Size"
-          value={component.styles.fontSize || '16px'}
+          value={currentStyles.fontSize || '16px'}
           onChange={(value) => handleStyleChange('fontSize', value)}
           min={10}
           max={48}
@@ -76,7 +118,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Font Weight</label>
         <select
-          value={component.styles.fontWeight || '600'}
+          value={currentStyles.fontWeight || '600'}
           onChange={(e) => handleStyleChange('fontWeight', e.target.value)}
         >
           <option value="400">Regular</option>
@@ -91,12 +133,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.backgroundColor || '#2563eb'}
+            value={currentStyles.backgroundColor || '#2563eb'}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.backgroundColor || ''}
+            value={currentStyles.backgroundColor || ''}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
             placeholder="#2563eb"
           />
@@ -107,12 +149,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.color || '#ffffff'}
+            value={currentStyles.color || '#ffffff'}
             onChange={(e) => handleStyleChange('color', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.color || ''}
+            value={currentStyles.color || ''}
             onChange={(e) => handleStyleChange('color', e.target.value)}
             placeholder="#ffffff"
           />
@@ -121,7 +163,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Border Radius"
-          value={component.styles.borderRadius || '8px'}
+          value={currentStyles.borderRadius || '8px'}
           onChange={(value) => handleStyleChange('borderRadius', value)}
           min={0}
           max={50}
@@ -131,7 +173,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Padding"
-          value={component.styles.padding || '12px'}
+          value={currentStyles.padding || '12px'}
           onChange={(value) => handleStyleChange('padding', value)}
           min={0}
           max={50}
@@ -141,7 +183,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Hover Effect</label>
         <select
-          value={component.styles.transition || 'all 0.2s'}
+          value={currentStyles.transition || 'all 0.2s'}
           onChange={(e) => handleStyleChange('transition', e.target.value)}
         >
           <option value="all 0.2s">Smooth</option>
@@ -154,7 +196,7 @@ export default function PropertiesPanel({
         <label>Box Shadow</label>
         <input
           type="text"
-          value={component.styles.boxShadow || ''}
+          value={currentStyles.boxShadow || ''}
           onChange={(e) => handleStyleChange('boxShadow', e.target.value)}
           placeholder="0 2px 4px rgba(0,0,0,0.1)"
         />
@@ -179,7 +221,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Font Size"
-          value={component.styles.fontSize || '16px'}
+          value={currentStyles.fontSize || '16px'}
           onChange={(value) => handleStyleChange('fontSize', value)}
           min={8}
           max={72}
@@ -189,7 +231,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Font Weight</label>
         <select
-          value={component.styles.fontWeight || '400'}
+          value={currentStyles.fontWeight || '400'}
           onChange={(e) => handleStyleChange('fontWeight', e.target.value)}
         >
           <option value="300">Light</option>
@@ -202,7 +244,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Text Align</label>
         <select
-          value={component.styles.textAlign || 'left'}
+          value={currentStyles.textAlign || 'left'}
           onChange={(e) => handleStyleChange('textAlign', e.target.value)}
         >
           <option value="left">Left</option>
@@ -216,12 +258,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.color || '#333333'}
+            value={currentStyles.color || '#333333'}
             onChange={(e) => handleStyleChange('color', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.color || ''}
+            value={currentStyles.color || ''}
             onChange={(e) => handleStyleChange('color', e.target.value)}
             placeholder="#333333"
           />
@@ -230,7 +272,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Line Height"
-          value={component.styles.lineHeight || '1.6'}
+          value={currentStyles.lineHeight || '1.6'}
           onChange={(value) => handleStyleChange('lineHeight', value)}
           min={1}
           max={3}
@@ -242,7 +284,7 @@ export default function PropertiesPanel({
         <label>Letter Spacing</label>
         <input
           type="text"
-          value={component.styles.letterSpacing || ''}
+          value={currentStyles.letterSpacing || ''}
           onChange={(e) => handleStyleChange('letterSpacing', e.target.value)}
           placeholder="0.5px"
         />
@@ -300,7 +342,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Object Fit</label>
         <select
-          value={component.styles.objectFit || 'cover'}
+          value={currentStyles.objectFit || 'cover'}
           onChange={(e) => handleStyleChange('objectFit', e.target.value)}
         >
           <option value="cover">Cover</option>
@@ -313,7 +355,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Border Radius"
-          value={component.styles.borderRadius || '8px'}
+          value={currentStyles.borderRadius || '8px'}
           onChange={(value) => handleStyleChange('borderRadius', value)}
           min={0}
           max={50}
@@ -324,7 +366,7 @@ export default function PropertiesPanel({
         <label>Filter Effects</label>
         <input
           type="text"
-          value={component.styles.filter || ''}
+          value={currentStyles.filter || ''}
           onChange={(e) => handleStyleChange('filter', e.target.value)}
           placeholder="brightness(1.1) contrast(1.1)"
         />
@@ -332,7 +374,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Opacity"
-          value={component.styles.opacity || '1'}
+          value={currentStyles.opacity || '1'}
           onChange={(value) => handleStyleChange('opacity', value)}
           min={0}
           max={1}
@@ -351,7 +393,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Display</label>
         <select
-          value={component.styles.display || 'flex'}
+          value={currentStyles.display || 'flex'}
           onChange={(e) => handleStyleChange('display', e.target.value)}
         >
           <option value="flex">Flex</option>
@@ -363,7 +405,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Flex Direction</label>
         <select
-          value={component.styles.flexDirection || 'column'}
+          value={currentStyles.flexDirection || 'column'}
           onChange={(e) => handleStyleChange('flexDirection', e.target.value)}
         >
           <option value="row">Row</option>
@@ -375,7 +417,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Justify Content</label>
         <select
-          value={component.styles.justifyContent || 'flex-start'}
+          value={currentStyles.justifyContent || 'flex-start'}
           onChange={(e) => handleStyleChange('justifyContent', e.target.value)}
         >
           <option value="flex-start">Start</option>
@@ -389,7 +431,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Align Items</label>
         <select
-          value={component.styles.alignItems || 'flex-start'}
+          value={currentStyles.alignItems || 'flex-start'}
           onChange={(e) => handleStyleChange('alignItems', e.target.value)}
         >
           <option value="flex-start">Start</option>
@@ -402,7 +444,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Gap"
-          value={component.styles.gap || '16px'}
+          value={currentStyles.gap || '16px'}
           onChange={(value) => handleStyleChange('gap', value)}
           min={0}
           max={50}
@@ -412,7 +454,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Padding"
-          value={component.styles.padding || '24px'}
+          value={currentStyles.padding || '24px'}
           onChange={(value) => handleStyleChange('padding', value)}
           min={0}
           max={100}
@@ -424,12 +466,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.backgroundColor || '#ffffff'}
+            value={currentStyles.backgroundColor || '#ffffff'}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.backgroundColor || ''}
+            value={currentStyles.backgroundColor || ''}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
             placeholder="#ffffff"
           />
@@ -439,7 +481,7 @@ export default function PropertiesPanel({
         <label>Border</label>
         <input
           type="text"
-          value={component.styles.border || ''}
+          value={currentStyles.border || ''}
           onChange={(e) => handleStyleChange('border', e.target.value)}
           placeholder="1px solid #e0e0e0"
         />
@@ -464,7 +506,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Font Size"
-          value={component.styles.fontSize || '16px'}
+          value={currentStyles.fontSize || '16px'}
           onChange={(value) => handleStyleChange('fontSize', value)}
           min={12}
           max={24}
@@ -474,7 +516,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Padding"
-          value={component.styles.padding || '12px'}
+          value={currentStyles.padding || '12px'}
           onChange={(value) => handleStyleChange('padding', value)}
           min={4}
           max={32}
@@ -485,7 +527,7 @@ export default function PropertiesPanel({
         <label>Border</label>
         <input
           type="text"
-          value={component.styles.border || ''}
+          value={currentStyles.border || ''}
           onChange={(e) => handleStyleChange('border', e.target.value)}
           placeholder="2px solid #e0e0e0"
         />
@@ -493,7 +535,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Border Radius"
-          value={component.styles.borderRadius || '8px'}
+          value={currentStyles.borderRadius || '8px'}
           onChange={(value) => handleStyleChange('borderRadius', value)}
           min={0}
           max={24}
@@ -505,12 +547,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.outlineColor || '#2563eb'}
+            value={currentStyles.outlineColor || '#2563eb'}
             onChange={(e) => handleStyleChange('outlineColor', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.outlineColor || ''}
+            value={currentStyles.outlineColor || ''}
             onChange={(e) => handleStyleChange('outlineColor', e.target.value)}
             placeholder="#2563eb"
           />
@@ -538,12 +580,12 @@ export default function PropertiesPanel({
         <div className="color-input">
           <input
             type="color"
-            value={component.styles.backgroundColor || '#ffffff'}
+            value={currentStyles.backgroundColor || '#ffffff'}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
           />
           <input
             type="text"
-            value={component.styles.backgroundColor || ''}
+            value={currentStyles.backgroundColor || ''}
             onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
             placeholder="#ffffff"
           />
@@ -552,7 +594,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Padding"
-          value={component.styles.padding || '24px'}
+          value={currentStyles.padding || '24px'}
           onChange={(value) => handleStyleChange('padding', value)}
           min={8}
           max={64}
@@ -562,7 +604,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <Slider
           label="Border Radius"
-          value={component.styles.borderRadius || '12px'}
+          value={currentStyles.borderRadius || '12px'}
           onChange={(value) => handleStyleChange('borderRadius', value)}
           min={0}
           max={32}
@@ -572,7 +614,7 @@ export default function PropertiesPanel({
       <div className="property-group">
         <label>Box Shadow</label>
         <select
-          value={component.styles.boxShadow || '0 2px 8px rgba(0,0,0,0.1)'}
+          value={currentStyles.boxShadow || '0 2px 8px rgba(0,0,0,0.1)'}
           onChange={(e) => handleStyleChange('boxShadow', e.target.value)}
         >
           <option value="none">None</option>
@@ -586,7 +628,7 @@ export default function PropertiesPanel({
         <label>Border</label>
         <input
           type="text"
-          value={component.styles.border || ''}
+          value={currentStyles.border || ''}
           onChange={(e) => handleStyleChange('border', e.target.value)}
           placeholder="1px solid #e0e0e0"
         />
@@ -641,6 +683,7 @@ export default function PropertiesPanel({
       </div>
 
       <div className="properties-content">
+        {renderStateToggle()}
         <div className="property-section">
           <h4>
             {component.type.charAt(0).toUpperCase() + component.type.slice(1)}
@@ -656,7 +699,7 @@ export default function PropertiesPanel({
         <div className="property-group">
           <label>Display</label>
           <select
-            value={component.styles.display || 'block'}
+            value={currentStyles.display || 'block'}
             onChange={(e) => handleStyleChange('display', e.target.value)}
           >
             <option value="block">Block</option>
@@ -668,12 +711,12 @@ export default function PropertiesPanel({
           </select>
         </div>
 
-        {(component.styles.display === 'flex' || component.styles.display === 'inline-flex') && (
+        {(currentStyles.display === 'flex' || currentStyles.display === 'inline-flex') && (
           <div className="layout-controls-group">
             <div className="property-group">
               <label>Flex Direction</label>
               <select
-                value={component.styles.flexDirection || 'row'}
+                value={currentStyles.flexDirection || 'row'}
                 onChange={(e) => handleStyleChange('flexDirection', e.target.value)}
               >
                 <option value="row">Row →</option>
@@ -685,7 +728,7 @@ export default function PropertiesPanel({
             <div className="property-group">
               <label>Justify Content</label>
               <select
-                value={component.styles.justifyContent || 'flex-start'}
+                value={currentStyles.justifyContent || 'flex-start'}
                 onChange={(e) => handleStyleChange('justifyContent', e.target.value)}
               >
                 <option value="flex-start">Start</option>
@@ -699,7 +742,7 @@ export default function PropertiesPanel({
             <div className="property-group">
               <label>Align Items</label>
               <select
-                value={component.styles.alignItems || 'stretch'}
+                value={currentStyles.alignItems || 'stretch'}
                 onChange={(e) => handleStyleChange('alignItems', e.target.value)}
               >
                 <option value="stretch">Stretch</option>
@@ -712,7 +755,7 @@ export default function PropertiesPanel({
             <div className="property-group">
               <label>Flex Wrap</label>
               <select
-                value={component.styles.flexWrap || 'nowrap'}
+                value={currentStyles.flexWrap || 'nowrap'}
                 onChange={(e) => handleStyleChange('flexWrap', e.target.value)}
               >
                 <option value="nowrap">No Wrap</option>
@@ -724,7 +767,7 @@ export default function PropertiesPanel({
               <label>Gap</label>
               <input
                 type="text"
-                value={component.styles.gap || ''}
+                value={currentStyles.gap || ''}
                 onChange={(e) => handleStyleChange('gap', e.target.value)}
                 placeholder="0px, 1rem"
               />
@@ -732,13 +775,13 @@ export default function PropertiesPanel({
           </div>
         )}
 
-        {component.styles.display === 'grid' && (
+        {currentStyles.display === 'grid' && (
           <div className="layout-controls-group">
             <div className="property-group">
               <label>Grid Template Columns</label>
               <input
                 type="text"
-                value={component.styles.gridTemplateColumns || ''}
+                value={currentStyles.gridTemplateColumns || ''}
                 onChange={(e) => handleStyleChange('gridTemplateColumns', e.target.value)}
                 placeholder="1fr 1fr, repeat(3, 1fr)"
               />
@@ -747,7 +790,7 @@ export default function PropertiesPanel({
               <label>Gap</label>
               <input
                 type="text"
-                value={component.styles.gap || ''}
+                value={currentStyles.gap || ''}
                 onChange={(e) => handleStyleChange('gap', e.target.value)}
                 placeholder="0px, 1rem"
               />
@@ -764,7 +807,7 @@ export default function PropertiesPanel({
             <label>Width</label>
             <input
               type="text"
-              value={component.styles.width || ''}
+              value={currentStyles.width || ''}
               onChange={(e) => handleStyleChange('width', e.target.value)}
               placeholder="auto, 100%, 200px"
               style={{ fontSize: '13px', padding: '6px' }}
@@ -774,7 +817,7 @@ export default function PropertiesPanel({
             <label>Height</label>
             <input
               type="text"
-              value={component.styles.height || ''}
+              value={currentStyles.height || ''}
               onChange={(e) => handleStyleChange('height', e.target.value)}
               placeholder="auto, 100vh, 200px"
               style={{ fontSize: '13px', padding: '6px' }}
@@ -787,7 +830,7 @@ export default function PropertiesPanel({
             <label style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Margin</label>
             <input
               type="text"
-              value={component.styles.margin || ''}
+              value={currentStyles.margin || ''}
               onChange={(e) => handleStyleChange('margin', e.target.value)}
               placeholder="0px auto (T R B L)"
             />
@@ -797,7 +840,7 @@ export default function PropertiesPanel({
             <label style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Padding</label>
             <input
               type="text"
-              value={component.styles.padding || ''}
+              value={currentStyles.padding || ''}
               onChange={(e) => handleStyleChange('padding', e.target.value)}
               placeholder="16px 24px (T R B L)"
             />
