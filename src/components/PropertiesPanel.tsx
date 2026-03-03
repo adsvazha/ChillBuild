@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Component } from '../types';
-import { Trash2, Upload } from 'lucide-react';
+import { Component, Page } from '../types';
+import { Trash2, Upload, ExternalLink } from 'lucide-react';
 import Slider from './Slider';
 import { useWorkspace } from './WorkspaceProvider';
 
 interface PropertiesPanelProps {
   component: Component | null;
+  pages: Page[];
   onUpdateComponent: (component: Component) => void;
   onDeleteComponent: () => void;
 }
 
 export default function PropertiesPanel({
   component,
+  pages,
   onUpdateComponent,
   onDeleteComponent,
 }: PropertiesPanelProps) {
@@ -200,6 +202,33 @@ export default function PropertiesPanel({
           onChange={(e) => handleStyleChange('boxShadow', e.target.value)}
           placeholder="0 2px 4px rgba(0,0,0,0.1)"
         />
+      </div>
+
+      <div className="property-section" style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ExternalLink size={14} />
+          <h4 style={{ margin: 0 }}>Navigation</h4>
+        </div>
+      </div>
+      <div className="property-group">
+        <label>Next Page</label>
+        <select
+          value={component.navigation?.targetPageId || ''}
+          onChange={(e) => {
+            const pageId = e.target.value;
+            onUpdateComponent({
+              ...component,
+              navigation: pageId ? { type: 'page', targetPageId: pageId } : undefined
+            });
+          }}
+        >
+          <option value="">None (No Navigation)</option>
+          {pages.map(page => (
+            <option key={page.id} value={page.id}>
+              {page.name}
+            </option>
+          ))}
+        </select>
       </div>
     </>
   );

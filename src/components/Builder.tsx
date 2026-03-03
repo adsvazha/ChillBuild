@@ -339,7 +339,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
     setHtmlCode(newHtml);
     try {
       const wrapperHtml = `<div class="canvas-container">${newHtml}</div>`;
-      const parsed = parseHTMLToComponents(wrapperHtml);
+      const parsed = parseHTMLToComponents(wrapperHtml, components);
       if (parsed.length > 0) {
         const withStyles = applyCSSToComponents(customCSS, parsed);
         setComponents(withStyles);
@@ -720,6 +720,7 @@ ${generateBodyHTML(savePage.components)}
             canvasBg={canvasBg}
             onCanvasBgChange={setCanvasBg}
             onContextMenu={handleContextMenu}
+            onSwitchPage={handleSwitchPage}
           />
         </main>
 
@@ -769,6 +770,7 @@ ${generateBodyHTML(savePage.components)}
             >
               <PropertiesPanel
                 component={selectedComponent}
+                pages={pages}
                 onUpdateComponent={handleUpdateComponent}
                 onDeleteComponent={handleDeleteComponent}
               />

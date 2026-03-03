@@ -20,6 +20,12 @@ export interface Component {
     mobile?: Record<string, string>;
   };
   children?: Component[];
+  navigation?: ComponentNavigation;
+}
+
+export interface ComponentNavigation {
+  type: 'page';
+  targetPageId: string;
 }
 
 export interface CSSRule {

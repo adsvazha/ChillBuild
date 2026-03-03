@@ -150,14 +150,16 @@ export class CSSManager {
       const propertiesText = match[2].trim();
 
       const properties: Record<string, string> = {};
-      const propRegex = /([^:]+):([^;]+)/g;
-      let propMatch;
+      const individualRules = propertiesText.split(';').map(r => r.trim()).filter(Boolean);
 
-      while ((propMatch = propRegex.exec(propertiesText)) !== null) {
-        const key = propMatch[1].trim();
-        const value = propMatch[2].trim();
-        const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        properties[camelKey] = value;
+      for (const rule of individualRules) {
+        const firstColonIndex = rule.indexOf(':');
+        if (firstColonIndex !== -1) {
+          const key = rule.substring(0, firstColonIndex).trim();
+          const value = rule.substring(firstColonIndex + 1).trim();
+          const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+          properties[camelKey] = value;
+        }
       }
 
       for (const selector of selectors) {

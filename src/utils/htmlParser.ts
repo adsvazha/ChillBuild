@@ -4,16 +4,25 @@ import { Component } from '../types';
  * Parse HTML body content back into Component array.
  * Extracts className, customId, and maps elements to the correct component types.
  */
-export const parseHTMLToComponents = (html: string): Component[] => {
+export const parseHTMLToComponents = (html: string, existingComponents: Component[] = []): Component[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const components: Component[] = [];
 
   let componentIdCounter = 0;
 
+  // Build a flat map of className -> ID from existing components to maintain stability
+  const idMap = new Map<string, string>();
+  const flattenIds = (comps: Component[]) => {
+    comps.forEach(c => {
+      if (c.className) idMap.set(c.className, c.id);
+      if (c.children) flattenIds(c.children);
+    });
+  };
+  flattenIds(existingComponents);
+
   const parseElement = (element: Element): Component | null => {
     componentIdCounter++;
-    const id = `parsed-${Date.now()}-${componentIdCounter}`;
 
     const tagName = element.tagName.toLowerCase();
 
@@ -33,6 +42,9 @@ export const parseHTMLToComponents = (html: string): Component[] => {
 
     const className = element.getAttribute('class') || undefined;
     const customId = element.getAttribute('id') || undefined;
+
+    // Use existing ID if className matches, otherwise generate a new one
+    const id = (className && idMap.get(className)) || `parsed-${Date.now()}-${componentIdCounter}`;
 
     // Build styles from inline style attribute (if any)
     const styles: Record<string, string> = {};
@@ -121,7 +133,7 @@ export const parseHTMLToComponents = (html: string): Component[] => {
       case 'main':
       case 'aside':
       case 'header':
-        // Check if it"s a card (heuristic: div with text content and no children)
+        // Check if it's a card (heuristic: div with text content and no children)
         if (tagName === 'div' && element.children.length === 0 && element.textContent?.trim()) {
           type = 'card';
           content = element.textContent || '';

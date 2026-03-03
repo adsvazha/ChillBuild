@@ -12,6 +12,7 @@ interface CanvasProps {
   canvasBg?: string;
   onCanvasBgChange?: (bg: string) => void;
   onContextMenu?: (e: React.MouseEvent, componentId: string | null) => void;
+  onSwitchPage?: (pageId: string) => void;
 }
 
 export default function Canvas({
@@ -22,6 +23,7 @@ export default function Canvas({
   canvasBg: canvasBgProp,
   onCanvasBgChange,
   onContextMenu,
+  onSwitchPage,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { state: workspaceState } = useWorkspace();
@@ -176,6 +178,15 @@ export default function Canvas({
 
     const handleClick = (e: React.MouseEvent) => {
       e.stopPropagation();
+
+      // Handle navigation in preview mode
+      if (workspaceState.activePreset === 'preview' && component.navigation?.type === 'page') {
+        if (onSwitchPage) {
+          onSwitchPage(component.navigation.targetPageId);
+        }
+        return;
+      }
+
       onSelectComponent(component.id);
     };
 
