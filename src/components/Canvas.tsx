@@ -49,6 +49,7 @@ export default function Canvas({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const componentType = e.dataTransfer.getData('componentType') as Component['type'];
+    const assetUrl = e.dataTransfer.getData('assetUrl');
 
     if (componentType && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -58,6 +59,11 @@ export default function Canvas({
       const newComponent = createComponent(componentType);
       newComponent.position = { x, y };
       newComponent.size = { width: 200, height: 100 };
+
+      if (assetUrl) {
+        newComponent.content = assetUrl;
+      }
+
       onComponentsChange([...components, newComponent]);
     }
   };
