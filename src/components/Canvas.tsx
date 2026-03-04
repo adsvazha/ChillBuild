@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Grid3x3, Palette, Maximize2, MousePointer2, Copy, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { Component } from '../types';
+import { ZoomIn, ZoomOut, Grid3x3, Palette, Maximize2, MousePointer2, Copy, Trash2, ChevronUp, ChevronDown, Image as ImageIcon, Film, X } from 'lucide-react';
+import { Component, CanvasBgMedia } from '../types';
 import { createComponent } from '../utils/componentDefaults';
 import { useWorkspace } from './WorkspaceProvider';
 
@@ -11,6 +11,8 @@ interface CanvasProps {
   onSelectComponent: (id: string | null) => void;
   canvasBg?: string;
   onCanvasBgChange?: (bg: string) => void;
+  bgMedia?: CanvasBgMedia;
+  onBgMediaChange?: (media: CanvasBgMedia | undefined) => void;
   onContextMenu?: (e: React.MouseEvent, componentId: string | null) => void;
   onSwitchPage?: (pageId: string) => void;
   onDuplicate?: () => void;
@@ -24,6 +26,8 @@ export default function Canvas({
   onSelectComponent,
   canvasBg: canvasBgProp,
   onCanvasBgChange,
+  bgMedia,
+  onBgMediaChange,
   onContextMenu,
   onSwitchPage,
   onDuplicate,
@@ -48,6 +52,52 @@ export default function Canvas({
 
   const canvasBg = canvasBgProp || '#ffffff';
   const setCanvasBg = (bg: string) => { if (onCanvasBgChange) onCanvasBgChange(bg); };
+
+  // Background media popover
+  const [showBgPicker, setShowBgPicker] = useState(false);
+  const [bgTab, setBgTab] = useState<'color' | 'image' | 'video'>('color');
+  const [bgUrlInput, setBgUrlInput] = useState(bgMedia?.url || '');
+  const [bgOverlayOpacity, setBgOverlayOpacity] = useState(bgMedia?.overlayOpacity ?? 0.3);
+  const [bgOverlayColor, setBgOverlayColor] = useState(bgMedia?.overlayColor ?? '#000000');
+  const [bgSize, setBgSize] = useState<'cover' | 'contain' | 'auto'>(bgMedia?.size ?? 'cover');
+  const bgImageInputRef = useRef<HTMLInputElement>(null);
+  const bgVideoInputRef = useRef<HTMLInputElement>(null);
+
+  const applyBgMedia = (type: 'image' | 'video', url: string) => {
+    if (!url.trim()) return;
+    const media: CanvasBgMedia = {
+      type,
+      url: url.trim(),
+      size: bgSize,
+      position: 'center center',
+      overlayOpacity: bgOverlayOpacity,
+      overlayColor: bgOverlayColor,
+    };
+    onBgMediaChange?.(media);
+    setBgUrlInput(url.trim());
+  };
+
+  const removeBgMedia = () => {
+    onBgMediaChange?.(undefined);
+    setBgUrlInput('');
+  };
+
+  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = ev => applyBgMedia('image', ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBgVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      applyBgMedia('video', url);
+    }
+  };
 
   const GRID_SIZE = 16;
   const SNAP_THRESHOLD = 8;
@@ -566,13 +616,118 @@ export default function Canvas({
             <Grid3x3 size={16} />
             <span>Grid</span>
           </button>
-          <div className="color-picker-wrapper">
-            <input type="color" value={canvasBg} onChange={e => setCanvasBg(e.target.value)} title="Canvas background" style={{ display: 'none' }} id="canvas-bg-picker" />
-            <label htmlFor="canvas-bg-picker" className="toolbar-btn" title="Canvas background" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <Palette size={16} />
+
+          {/* Background Media Picker */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className={`toolbar-btn ${bgMedia?.type && bgMedia.type !== 'none' ? 'active' : ''}`}
+              onClick={() => setShowBgPicker(p => !p)}
+              title="Canvas background"
+            >
+              {bgMedia?.type === 'video' ? <Film size={16} /> : bgMedia?.type === 'image' ? <ImageIcon size={16} /> : <Palette size={16} />}
               <span>Background</span>
-              <div style={{ width: '14px', height: '14px', borderRadius: '3px', backgroundColor: canvasBg, border: '1.5px solid rgba(0,0,0,0.15)', flexShrink: 0 }} />
-            </label>
+              {!bgMedia?.type || bgMedia.type === 'none' ? (
+                <div style={{ width: '14px', height: '14px', borderRadius: '3px', backgroundColor: canvasBg, border: '1.5px solid rgba(0,0,0,0.15)', flexShrink: 0 }} />
+              ) : (
+                <span style={{ fontSize: '10px', background: '#6366f1', color: '#fff', borderRadius: '4px', padding: '1px 5px', fontWeight: 700 }}>
+                  {bgMedia.type === 'video' ? 'VID' : 'IMG'}
+                </span>
+              )}
+            </button>
+
+            {/* Popover */}
+            {showBgPicker && (
+              <div className="bg-media-popover">
+                <div className="bg-media-header">
+                  <span>Background</span>
+                  <button onClick={() => setShowBgPicker(false)}><X size={14} /></button>
+                </div>
+
+                {/* Tabs */}
+                <div className="bg-media-tabs">
+                  {(['color', 'image', 'video'] as const).map(t => (
+                    <button key={t} className={`bg-media-tab ${bgTab === t ? 'active' : ''}`} onClick={() => setBgTab(t)}>
+                      {t === 'color' ? <Palette size={12} /> : t === 'image' ? <ImageIcon size={12} /> : <Film size={12} />}
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Color tab */}
+                {bgTab === 'color' && (
+                  <div className="bg-media-body">
+                    <label className="bg-media-label">Background Color</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input type="color" value={canvasBg} onChange={e => setCanvasBg(e.target.value)}
+                        style={{ width: '36px', height: '36px', border: '1.5px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', padding: '2px' }} />
+                      <input type="text" value={canvasBg} onChange={e => setCanvasBg(e.target.value)}
+                        style={{ flex: 1, padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', fontFamily: 'Inter, monospace' }} />
+                    </div>
+                    {bgMedia?.type && bgMedia.type !== 'none' && (
+                      <button className="bg-remove-btn" onClick={removeBgMedia}>Remove media background</button>
+                    )}
+                  </div>
+                )}
+
+                {/* Image tab */}
+                {bgTab === 'image' && (
+                  <div className="bg-media-body">
+                    <input type="file" accept="image/*" ref={bgImageInputRef} style={{ display: 'none' }} onChange={handleBgImageUpload} />
+                    <button className="bg-upload-btn" onClick={() => bgImageInputRef.current?.click()}>
+                      <ImageIcon size={14} /> Upload Image
+                    </button>
+                    <div className="bg-media-divider">or paste URL</div>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/image.jpg"
+                      value={bgUrlInput}
+                      onChange={e => setBgUrlInput(e.target.value)}
+                      className="bg-url-input"
+                    />
+                    <button className="bg-apply-btn" onClick={() => applyBgMedia('image', bgUrlInput)}>Apply Image</button>
+                    <label className="bg-media-label" style={{ marginTop: '8px' }}>Fit</label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {(['cover', 'contain', 'auto'] as const).map(s => (
+                        <button key={s} className={`bg-size-btn ${bgSize === s ? 'active' : ''}`} onClick={() => setBgSize(s)}>{s}</button>
+                      ))}
+                    </div>
+                    <label className="bg-media-label" style={{ marginTop: '8px' }}>Overlay opacity</label>
+                    <input type="range" min={0} max={1} step={0.05} value={bgOverlayOpacity}
+                      onChange={e => setBgOverlayOpacity(+e.target.value)} className="prop-range" />
+                    {bgMedia?.type === 'image' && <button className="bg-remove-btn" onClick={removeBgMedia}>Remove</button>}
+                  </div>
+                )}
+
+                {/* Video tab */}
+                {bgTab === 'video' && (
+                  <div className="bg-media-body">
+                    <input type="file" accept="video/*" ref={bgVideoInputRef} style={{ display: 'none' }} onChange={handleBgVideoUpload} />
+                    <button className="bg-upload-btn" onClick={() => bgVideoInputRef.current?.click()}>
+                      <Film size={14} /> Upload Video
+                    </button>
+                    <div className="bg-media-divider">or paste URL</div>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/video.mp4"
+                      value={bgUrlInput}
+                      onChange={e => setBgUrlInput(e.target.value)}
+                      className="bg-url-input"
+                    />
+                    <button className="bg-apply-btn" onClick={() => applyBgMedia('video', bgUrlInput)}>Apply Video</button>
+                    <label className="bg-media-label" style={{ marginTop: '8px' }}>Overlay tint</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input type="color" value={bgOverlayColor} onChange={e => setBgOverlayColor(e.target.value)}
+                        style={{ width: '30px', height: '30px', border: '1.5px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer', padding: '2px' }} />
+                      <input type="range" min={0} max={0.9} step={0.05} value={bgOverlayOpacity}
+                        onChange={e => setBgOverlayOpacity(+e.target.value)} className="prop-range" style={{ flex: 1 }} />
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366f1', minWidth: '32px' }}>{Math.round(bgOverlayOpacity * 100)}%</span>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.4, marginTop: '6px' }}>Video plays silently and loops automatically in the background.</p>
+                    {bgMedia?.type === 'video' && <button className="bg-remove-btn" onClick={removeBgMedia}>Remove</button>}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -621,10 +776,14 @@ export default function Canvas({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            onClick={() => { onSelectComponent(null); if (editingId) setEditingId(null); }}
+            onClick={() => { onSelectComponent(null); if (editingId) setEditingId(null); if (showBgPicker) setShowBgPicker(false); }}
             onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, null); }}
             style={{
               backgroundColor: canvasBg,
+              backgroundImage: bgMedia?.type === 'image' ? `url(${bgMedia.url})` : undefined,
+              backgroundSize: bgMedia?.type === 'image' ? (bgMedia.size || 'cover') : undefined,
+              backgroundPosition: bgMedia?.type === 'image' ? (bgMedia.position || 'center center') : undefined,
+              backgroundRepeat: 'no-repeat',
               minWidth: `${canvasWidth}px`,
               minHeight: `${canvasHeight}px`,
               margin: '0 auto',
@@ -638,6 +797,40 @@ export default function Canvas({
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
+            {/* Video background */}
+            {bgMedia?.type === 'video' && bgMedia.url && (
+              <>
+                <video
+                  key={bgMedia.url}
+                  autoPlay muted loop playsInline
+                  style={{
+                    position: 'absolute', inset: 0, width: '100%', height: '100%',
+                    objectFit: 'cover', zIndex: 0, pointerEvents: 'none',
+                    borderRadius: activeBreakpoint !== 'desktop' ? '16px' : '0',
+                  }}
+                >
+                  <source src={bgMedia.url} type="video/mp4" />
+                </video>
+                {/* Overlay tint */}
+                {(bgMedia.overlayOpacity ?? 0) > 0 && (
+                  <div style={{
+                    position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+                    backgroundColor: bgMedia.overlayColor || '#000000',
+                    opacity: bgMedia.overlayOpacity,
+                    borderRadius: activeBreakpoint !== 'desktop' ? '16px' : '0',
+                  }} />
+                )}
+              </>
+            )}
+            {/* Image overlay tint */}
+            {bgMedia?.type === 'image' && (bgMedia.overlayOpacity ?? 0) > 0 && (
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+                backgroundColor: bgMedia.overlayColor || '#000000',
+                opacity: bgMedia.overlayOpacity,
+                borderRadius: activeBreakpoint !== 'desktop' ? '16px' : '0',
+              }} />
+            )}
             {components.length === 0 ? (
               <div className="canvas-empty">
                 <div className="canvas-empty-icon">

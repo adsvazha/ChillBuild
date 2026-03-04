@@ -43,12 +43,27 @@ export interface OnboardingTip {
 
 // === NEW: Multi-page support ===
 
+export interface CanvasBgMedia {
+  /** 'image' | 'video' | 'none' */
+  type: 'image' | 'video' | 'none';
+  url: string;
+  /** background-size: cover | contain | auto */
+  size?: 'cover' | 'contain' | 'auto';
+  /** background-position string e.g. 'center center' */
+  position?: string;
+  /** 0–1 overlay tint opacity */
+  overlayOpacity?: number;
+  /** hex color for the overlay */
+  overlayColor?: string;
+}
+
 export interface Page {
   id: string;
   name: string;
   components: Component[];
   cssCode: string;
   canvasBg: string;
+  bgMedia?: CanvasBgMedia;
 }
 
 // === NEW: Workspace panel system ===

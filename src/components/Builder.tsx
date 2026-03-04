@@ -13,7 +13,7 @@ import ContextMenu, { ContextMenuItem } from './ContextMenu';
 import Tooltip from './Tooltip';
 import OnboardingTips from './OnboardingTips';
 import LayersPanel from './LayersPanel';
-import { Component, Page, OnboardingTip, LayoutPreset } from '../types';
+import { Component, Page, OnboardingTip, LayoutPreset, CanvasBgMedia } from '../types';
 import { generateCSSFromComponents, generateBodyHTML } from '../utils/codeGenerator';
 import { parseHTMLToComponents } from '../utils/htmlParser';
 import { applyCSSToComponents } from '../utils/cssManager';
@@ -70,6 +70,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
   const [customCSS, setCustomCSS] = useState(activePage.cssCode);
   const [htmlCode, setHtmlCode] = useState('');
   const [canvasBg, setCanvasBg] = useState(activePage.canvasBg);
+  const [bgMedia, setBgMedia] = useState<CanvasBgMedia | undefined>(activePage.bgMedia);
 
   // UI state
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -115,7 +116,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
   useEffect(() => {
     setPages(prev => prev.map(p =>
       p.id === activePageId
-        ? { ...p, components, cssCode: customCSS, canvasBg }
+        ? { ...p, components, cssCode: customCSS, canvasBg, bgMedia }
         : p
     ));
   }, [components, customCSS, canvasBg, activePageId]);
@@ -128,6 +129,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
       resetHistory(page.components);
       setCustomCSS(page.cssCode);
       setCanvasBg(page.canvasBg);
+      setBgMedia(page.bgMedia);
       setSelectedComponentId(null);
       syncSourceRef.current = null;
     }
@@ -149,6 +151,7 @@ function BuilderInner({ initialComponents = [] }: BuilderProps) {
         resetHistory(switchTo.components);
         setCustomCSS(switchTo.cssCode);
         setCanvasBg(switchTo.canvasBg);
+        setBgMedia(switchTo.bgMedia);
         setSelectedComponentId(null);
       }
       return next;
@@ -719,6 +722,8 @@ ${generateBodyHTML(savePage.components)}
             onSelectComponent={setSelectedComponentId}
             canvasBg={canvasBg}
             onCanvasBgChange={setCanvasBg}
+            bgMedia={bgMedia}
+            onBgMediaChange={setBgMedia}
             onContextMenu={handleContextMenu}
             onSwitchPage={handleSwitchPage}
             onDuplicate={handleDuplicate}
