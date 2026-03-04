@@ -721,6 +721,8 @@ ${generateBodyHTML(savePage.components)}
             onCanvasBgChange={setCanvasBg}
             onContextMenu={handleContextMenu}
             onSwitchPage={handleSwitchPage}
+            onDuplicate={handleDuplicate}
+            onDelete={handleDeleteComponent}
           />
         </main>
 

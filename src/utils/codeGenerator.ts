@@ -143,34 +143,60 @@ export const generateBodyHTML = (components: Component[]): string => {
           : `${pad}  <div class="${className}"${idAttr}></div>`;
         break;
       }
-      case 'card':
-        innerContent = `${pad}  <div class="${className}"${idAttr}>${component.content}</div>`;
-        break;
-      case 'navbar': {
-        const navChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
-        innerContent = navChildren
-          ? `${pad}  <nav class="${className}"${idAttr}>\n${navChildren}\n${pad}  </nav>`
-          : `${pad}  <nav class="${className}"${idAttr}></nav>`;
+      case 'card': {
+        const [title, desc, cta] = component.content.split('|');
+        innerContent = `${pad}  <div class="${className}"${idAttr}>
+${pad}    <h3>${title || 'Card Title'}</h3>
+${pad}    <p>${desc || 'Card description.'}</p>
+${cta ? `${pad}    <a href="#">${cta}</a>` : ''}
+${pad}  </div>`;
         break;
       }
-      case 'footer':
-        innerContent = `${pad}  <footer class="${className}"${idAttr}>${component.content}</footer>`;
+      case 'navbar': {
+        const parts = component.content.split('|');
+        const brand = parts[0] || 'Brand';
+        const links = parts.slice(1).filter(Boolean);
+        const navLinks = links.map(l => `<a href="#">${l}</a>`).join('\n        ');
+        innerContent = `${pad}  <nav class="${className}"${idAttr}>
+${pad}    <div class="nav-brand">${brand}</div>
+${pad}    <div class="nav-links">
+${pad}      ${navLinks}
+${pad}    </div>
+${pad}  </nav>`;
         break;
+      }
+      case 'footer': {
+        const parts = component.content.split('|');
+        const [brand, copyright, ...links] = parts;
+        const footerLinks = links.filter(Boolean).map(l => `<a href="#">${l}</a>`).join('\n      ');
+        innerContent = `${pad}  <footer class="${className}"${idAttr}>
+${pad}    <div class="footer-brand">${brand || 'Brand'}</div>
+${pad}    <div class="footer-links">${footerLinks}</div>
+${pad}    <p>${copyright || '© 2024 All rights reserved.'}</p>
+${pad}  </footer>`;
+        break;
+      }
       case 'form': {
-        const formChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
-        innerContent = formChildren
-          ? `${pad}  <form class="${className}"${idAttr}>\n${formChildren}\n${pad}  </form>`
-          : `${pad}  <form class="${className}"${idAttr}></form>`;
+        const [title, btnText] = component.content.split('|');
+        innerContent = `${pad}  <form class="${className}"${idAttr}>
+${pad}    <h3>${title || 'Contact Us'}</h3>
+${pad}    <div><label>Name</label><input type="text" placeholder="Your name" /></div>
+${pad}    <div><label>Email</label><input type="email" placeholder="your@email.com" /></div>
+${pad}    <div><label>Message</label><textarea placeholder="Your message"></textarea></div>
+${pad}    <button type="submit">${btnText || 'Send Message'}</button>
+${pad}  </form>`;
         break;
       }
       case 'video':
         innerContent = `${pad}  <video controls class="${className}"${idAttr}><source src="${component.content}" type="video/mp4"></video>`;
         break;
       case 'grid': {
-        const gridChildren = component.children?.map(c => renderComponent(c, indent + 4)).join('\n') || '';
-        innerContent = gridChildren
-          ? `${pad}  <div class="${className}"${idAttr}>\n${gridChildren}\n${pad}  </div>`
-          : `${pad}  <div class="${className}"${idAttr}></div>`;
+        const parts = component.content.split('|');
+        const cells: string[] = [];
+        for (let i = 0; i < parts.length; i += 2) {
+          cells.push(`${pad}    <div class="grid-cell"><h4>${parts[i] || 'Feature'}</h4><p>${parts[i + 1] || ''}</p></div>`);
+        }
+        innerContent = `${pad}  <div class="${className}"${idAttr}>\n${cells.join('\n')}\n${pad}  </div>`;
         break;
       }
       case 'list': {
